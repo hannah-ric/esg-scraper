@@ -14,7 +14,7 @@ import jwt
 import redis
 import httpx
 from bs4 import BeautifulSoup
-import trafilatura
+import requests  # For simple scraper fallback
 import yake
 from transformers import pipeline
 import sqlite3
@@ -31,6 +31,18 @@ import sys
 from pydantic import validator
 from prometheus_client import Counter, Histogram, Gauge, generate_latest
 from fastapi.middleware.cors import CORSMiddleware
+
+# Optional import for trafilatura
+try:
+    import trafilatura
+    TRAFILATURA_AVAILABLE = True
+except ImportError:
+    TRAFILATURA_AVAILABLE = False
+    trafilatura = None
+
+# Load environment variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
 
 # Import ESG framework modules
 from esg_frameworks import ESGFrameworkManager, Framework, DisclosureRequirement
@@ -695,7 +707,17 @@ class EnhancedKeywordScorer(KeywordScorer):
 
 # --- WEB SCRAPER ---
 class LeanScraper:
-    """Minimal, efficient web scraper"""
+    """Minimal, efficient web scraper with fallback options"""
+    
+    def __init__(self):
+        # Check if trafilatura is available
+        try:
+            import trafilatura
+            self.has_trafilatura = True
+            self.trafilatura = trafilatura
+        except ImportError:
+            self.has_trafilatura = False
+            logger.warning("Trafilatura not available, using fallback scraper")
     
     def _is_safe_url(self, url: str) -> bool:
         """Validate URL for safety to prevent SSRF attacks"""
@@ -726,25 +748,67 @@ class LeanScraper:
         except:
             return False
     
+    def _fallback_scrape(self, html_content: str) -> str:
+        """Fallback scraping using BeautifulSoup only"""
+        try:
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # Remove script and style elements
+            for script in soup(["script", "style", "nav", "footer", "header"]):
+                script.decompose()
+            
+            # Try to find main content areas first
+            main_content = soup.find('main') or soup.find('article') or soup.find('div', {'class': ['content', 'main', 'article']})
+            
+            if main_content:
+                text = main_content.get_text(separator=' ', strip=True)
+            else:
+                text = soup.get_text(separator=' ', strip=True)
+            
+            # Clean up whitespace
+            lines = (line.strip() for line in text.splitlines())
+            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+            text = ' '.join(chunk for chunk in chunks if chunk)
+            
+            return text
+            
+        except Exception as e:
+            logger.error(f"Fallback scraping failed: {e}")
+            return html_content  # Return raw HTML as last resort
+    
     async def scrape(self, url: str) -> str:
-        """Scrape and extract main content"""
+        """Scrape and extract main content with fallback options"""
         # Validate URL first
         if not self._is_safe_url(url):
             raise ValueError("Invalid or unsafe URL")
             
         async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.get(url)
-            response.raise_for_status()
-            
-            # Use trafilatura for efficient extraction
-            content = trafilatura.extract(response.text)
-            
-            if not content:
+            try:
+                response = await client.get(url)
+                response.raise_for_status()
+                html_content = response.text
+                
+                # Try trafilatura first if available
+                if self.has_trafilatura:
+                    try:
+                        content = self.trafilatura.extract(html_content)
+                        if content and len(content.strip()) > 100:  # Ensure we got meaningful content
+                            return content[:50000]  # Limit content size
+                        else:
+                            logger.warning("Trafilatura extracted insufficient content, using fallback")
+                    except Exception as e:
+                        logger.warning(f"Trafilatura extraction failed: {e}, using fallback")
+                
                 # Fallback to BeautifulSoup
-                soup = BeautifulSoup(response.text, 'html.parser')
-                content = soup.get_text(separator=' ', strip=True)
-            
-            return content[:50000]  # Limit content size
+                content = self._fallback_scrape(html_content)
+                return content[:50000]  # Limit content size
+                
+            except httpx.HTTPError as e:
+                logger.error(f"HTTP error while scraping {url}: {e}")
+                raise ValueError(f"Failed to fetch URL: {e}")
+            except Exception as e:
+                logger.error(f"Unexpected error while scraping {url}: {e}")
+                raise ValueError(f"Scraping failed: {e}")
 
 
 # --- USAGE TRACKING ---
@@ -1249,6 +1313,36 @@ async def check_rate_limit(user_id: str, operation: str = "default"):
 
 
 # --- DATABASE ---
+class DatabaseManager:
+    """Base SQLite database manager"""
+    
+    def __init__(self, db_path: str = None):
+        self.db_path = db_path or DATABASE_PATH
+        self.init_db()
+    
+    def init_db(self):
+        """Initialize basic database tables"""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS analyses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id TEXT NOT NULL,
+                    source_url TEXT,
+                    company_name TEXT,
+                    environmental_score REAL,
+                    social_score REAL,
+                    governance_score REAL,
+                    overall_score REAL,
+                    keywords TEXT,
+                    insights TEXT,
+                    analysis_type TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_user_id ON analyses(user_id)')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_company_name ON analyses(company_name)')
+
+
 class EnhancedDatabaseManager(DatabaseManager):
     """Enhanced SQLite database manager with framework compliance support"""
     
@@ -1474,28 +1568,26 @@ async def metrics():
 # After app initialization, add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8080",
-        "http://localhost:3000",
-        "https://esg-analyzer.com",
-        "https://www.esg-analyzer.com",
-        "https://*.ondigitalocean.app"  # Allow DigitalOcean app URLs
-    ],
+    allow_origins=["*"],  # Configure appropriately for production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-# Add BERT integration if enabled
-if os.getenv("ENABLE_BERT", "true").lower() == "true":
-    try:
-        from api_bert_integration import integrate_bert_routes
-        integrate_bert_routes(app)
-        logger.info("BERT integration enabled")
-    except ImportError:
-        logger.warning("BERT integration not available - missing dependencies")
-
-
 if __name__ == "__main__":
+    # Initialize database on startup
+    db_manager = EnhancedDatabaseManager()
+    db_manager.init_db()
+    
+    # Add CORS middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # Configure appropriately for production
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    
+    # Run the application
     uvicorn.run(app, host="0.0.0.0", port=8000)

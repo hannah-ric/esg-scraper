@@ -1,0 +1,82 @@
+# Core Web Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy==2.0.23
+aiosqlite==0.19.0
+
+# HTTP & Scraping
+httpx==0.25.2
+aiohttp==3.9.1
+requests>=2.28.0  # For simple scraper fallback
+beautifulsoup4==4.12.2
+lxml>=4.9.3  # Updated for better Apple Silicon compatibility
+pypdf2==3.0.1
+pdfplumber==0.10.3
+trafilatura==1.6.2
+yake==0.4.8
+
+# Trafilatura additional dependencies (auto-installed with trafilatura)
+courlan>=1.3.0
+htmldate>=1.9.0
+
+# Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+email-validator==2.1.0
+
+# Data Processing
+pandas==2.1.4
+numpy>=1.26.0
+scipy>=1.11.0
+pydantic==2.5.2
+python-dateutil==2.8.2
+
+# NLP & BERT (Optional - comment out if not using BERT)
+transformers==4.36.0
+torch>=2.2.0  # CPU version, for GPU use: torch==2.2.0+cu118
+tokenizers>=0.15.0
+huggingface-hub>=0.19.4
+
+# Monitoring & Logging
+prometheus-client==0.19.0
+python-json-logger==2.0.7
+
+# Caching
+redis==5.0.1
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+
+# Development
+python-dotenv==1.0.0
+
+# Rate Limiting
+slowapi==0.1.9
+
+# CORS
+fastapi-cors==0.0.6
+
+# Payment Processing (optional)
+stripe==7.8.0
+
+# Celery and its dependencies
+celery==5.3.4
+billiard>=4.1.0,<5.0
+click-didyoumean>=0.3.0
+click-plugins>=1.1.1
+click-repl>=0.2.0
+kombu>=5.3.2,<6.0
+vine>=5.0.0,<6.0
+
+# Additional compatibility fixes
+pillow>=7.1.0,<11.0  # Fix streamlit compatibility
+botocore>=1.34.41,<1.34.70  # Fix aiobotocore compatibility
+dask==2024.8.2  # Fix dask-expr compatibility
+
+# Character encoding
+charset-normalizer>=3.4.0 

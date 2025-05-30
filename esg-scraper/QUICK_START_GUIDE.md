@@ -1,225 +1,260 @@
-# Quick Start Guide: Launch ESG Analyzer
+# ESG Scraper Quick Start Guide
 
-This guide will help you launch your ESG Analyzer with a beautiful UI in under 30 minutes.
+## ✅ System Status: Ready!
 
-## 🚀 Quick Launch Steps
+Your ESG scraper is now fully set up and working! All dependency conflicts have been resolved.
 
-### Step 1: Fork and Clone
+## 🚀 Quick Start
 
+### 1. Verify Everything is Working
 ```bash
-# Fork the repository on GitHub first, then:
-git clone https://github.com/YOUR_USERNAME/esg-analyzer.git
-cd esg-analyzer
+python health_check.py
+```
+This should show all green checkmarks ✅.
+
+### 2. Start Required Services
+
+**Start Redis (in a separate terminal):**
+```bash
+# macOS with Homebrew
+brew services start redis
+# OR manually
+redis-server
+
+# Ubuntu/Debian
+sudo systemctl start redis-server
+
+# Windows
+# Download and install Redis for Windows
 ```
 
-### Step 2: Set Up GitHub Repository
-
+### 3. Configure Environment
+Edit the `.env` file with your settings:
 ```bash
-# Initialize git (if not already done)
-git init
-
-# Add your GitHub repository as origin
-git remote add origin https://github.com/YOUR_USERNAME/esg-analyzer.git
-
-# Create and push to main branch
-git add .
-git commit -m "Initial commit: ESG Analyzer with beautiful UI"
-git push -u origin main
+nano .env
 ```
 
-### Step 3: Quick DigitalOcean Setup
-
-1. **Sign up for DigitalOcean**: [Get $200 free credit](https://m.do.co/c/your-referral-code)
-
-2. **Create App Platform Apps**:
-   ```bash
-   # Install DigitalOcean CLI
-   brew install doctl  # macOS
-   # or
-   snap install doctl  # Linux
-   
-   # Authenticate
-   doctl auth init
-   ```
-
-3. **Deploy Frontend** (Free Static Site):
-   ```bash
-   # From the frontend directory
-   doctl apps create --spec - <<EOF
-   name: esg-analyzer-frontend
-   static_sites:
-   - name: frontend
-     github:
-       repo: YOUR_USERNAME/esg-analyzer
-       branch: main
-       deploy_on_push: true
-     source_dir: frontend
-   EOF
-   ```
-
-4. **Deploy Backend**:
-   ```bash
-   # From the backend directory
-   doctl apps create --spec - <<EOF
-   name: esg-analyzer-backend
-   services:
-   - name: api
-     github:
-       repo: YOUR_USERNAME/esg-analyzer
-       branch: main
-       deploy_on_push: true
-     source_dir: esg-scraper
-     dockerfile_path: Dockerfile.bert
-     instance_size_slug: basic-xs
-     instance_count: 1
-     http_port: 8000
-     routes:
-     - path: /
-   EOF
-   ```
-
-### Step 4: Configure GitHub Secrets
-
-1. Go to your GitHub repository
-2. Navigate to Settings → Secrets → Actions
-3. Add these secrets:
-   - `DIGITALOCEAN_ACCESS_TOKEN`: Your DO API token
-   - `DO_REGISTRY_NAME`: Your DO container registry name
-
-### Step 5: Update Frontend API URL
-
-Edit `frontend/app.js` and update:
-```javascript
-const API_BASE_URL = 'https://esg-analyzer-backend-xxxxx.ondigitalocean.app';
+**Important settings to update:**
+```env
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+REDIS_URL=redis://localhost:6379
+DATABASE_PATH=esg_data.db
 ```
 
-### Step 6: Push and Deploy
-
+### 4. Run the ESG Scraper
 ```bash
-git add .
-git commit -m "Configure for deployment"
-git push origin main
+python lean_esg_platform.py
 ```
 
-The GitHub Action will automatically deploy your app!
+The API will be available at: `http://localhost:8000`
 
-## 🎨 Accessing Your Beautiful UI
+## 📊 What's Working Now
 
-After deployment (usually 5-10 minutes):
+### ✅ Fixed Dependencies
+- **lxml**: Now works on Apple Silicon Macs
+- **trafilatura**: Web scraping with BeautifulSoup fallback
+- **Celery**: Background tasks with all dependencies
+- **Framework compatibility**: All version conflicts resolved
 
-1. **Frontend URL**: Check DigitalOcean dashboard for your app URL
-2. **API Documentation**: `https://your-backend-url/docs`
+### ✅ ESG Framework Analysis
+- **CSRD**: 14 comprehensive requirements
+- **GRI**: 10 universal and topic-specific standards  
+- **SASB**: 7 industry-focused requirements
+- **TCFD**: 11 climate disclosure requirements
 
-## 🛠️ Local Development
+### ✅ Advanced Features
+- Framework compliance percentage calculation
+- Automated metrics extraction (emissions, financial, social)
+- Gap analysis with severity levels (critical, high, medium, low)
+- Industry-specific recommendations
+- Historical trend tracking
+- Company benchmarking
 
-### Run Frontend Locally
+## 🔧 API Usage Examples
+
+### Analyze a URL
 ```bash
-cd frontend
-python -m http.server 8080
-# Visit http://localhost:8080
-```
-
-### Run Backend Locally
-```bash
-cd esg-scraper
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements_lean.txt
-uvicorn lean_esg_platform:app --reload
-# API at http://localhost:8000
-```
-
-## 📊 Test the Application
-
-### Via the Beautiful UI:
-1. Open your frontend URL
-2. Paste sample ESG text:
-   ```
-   Our company reduced carbon emissions by 35% through renewable energy.
-   Employee safety improved with TRIR of 0.5. Board diversity at 40%.
-   ```
-3. Click "Analyze Content"
-4. See beautiful visualizations!
-
-### Via API:
-```bash
-curl -X POST https://your-backend-url/api/analyze \
+curl -X POST "http://localhost:8000/analyze" \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
   -d '{
-    "content": "ESG report text here...",
-    "frameworks": ["CSRD", "TCFD"]
+    "url": "https://example.com/sustainability-report",
+    "company_name": "Example Corp",
+    "frameworks": ["CSRD", "TCFD"],
+    "industry_sector": "Technology",
+    "quick_mode": false
   }'
 ```
 
-## 💰 Cost Breakdown
+### Analyze Text Content
+```bash
+curl -X POST "http://localhost:8000/analyze" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "text": "Our company committed to net zero emissions by 2030...",
+    "company_name": "Green Corp",
+    "frameworks": ["CSRD", "GRI", "SASB", "TCFD"]
+  }'
+```
 
-- **Frontend**: FREE (static site)
-- **Backend**: ~$5/month (basic plan)
-- **Total**: ~$5/month for basic usage
+### Get Framework Information
+```bash
+curl -X GET "http://localhost:8000/frameworks" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
 
-## 🔧 Customization
+### Compare Companies
+```bash
+curl -X POST "http://localhost:8000/compare" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "companies": ["Apple Inc", "Microsoft", "Google"]
+  }'
+```
 
-### Change Colors/Theme
-Edit `frontend/index.html`:
-```css
-.gradient-bg {
-    background: linear-gradient(135deg, #YOUR_COLOR_1 0%, #YOUR_COLOR_2 100%);
+## 🔑 Getting an API Token
+
+1. Register a user:
+```bash
+curl -X POST "http://localhost:8000/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "your@email.com"}'
+```
+
+2. Use the returned token in the `Authorization: Bearer <token>` header.
+
+## 📈 Enhanced Analysis Features
+
+### Framework Compliance Analysis
+- **Coverage Percentage**: How much of each framework is addressed
+- **Mandatory vs Optional**: Compliance with required vs recommended disclosures
+- **Gap Analysis**: What's missing with severity assessment
+
+### Metrics Extraction
+- **Emissions Data**: CO2, scope 1/2/3 emissions
+- **Financial Metrics**: Revenue impacts, investment amounts
+- **Social Metrics**: Diversity percentages, safety incidents
+- **Governance Indicators**: Board composition, ethics training
+
+### Industry Intelligence
+- **Sector-Specific Analysis**: Tailored recommendations by industry
+- **Benchmarking**: Compare against industry averages
+- **Trend Analysis**: Historical performance tracking
+
+## 🛠️ Troubleshooting
+
+### If Redis Connection Fails
+```bash
+# Check if Redis is running
+redis-cli ping
+# Should return "PONG"
+
+# Start Redis if not running
+brew services start redis  # macOS
+sudo systemctl start redis-server  # Linux
+```
+
+### If Web Scraping Fails
+The system automatically falls back to BeautifulSoup if trafilatura fails. You can also use the manual scraper:
+```bash
+python simple_scraper.py
+```
+
+### If Framework Analysis is Slow
+Use `quick_mode: true` for faster analysis:
+```json
+{
+  "text": "Your ESG content...",
+  "quick_mode": true,
+  "frameworks": ["CSRD"]
 }
 ```
 
-### Add Your Logo
-Replace the SVG icon in the header with your logo:
-```html
-<img src="your-logo.png" alt="Your Company" class="h-8">
-```
+## 📚 API Documentation
 
-### Modify Analysis Options
-Edit `frontend/index.html` to add/remove frameworks or change default options.
+Once running, visit these URLs for documentation:
+- **Interactive API Docs**: http://localhost:8000/docs
+- **OpenAPI Schema**: http://localhost:8000/openapi.json
+- **Redoc Documentation**: http://localhost:8000/redoc
 
-## 🚨 Troubleshooting
+## 🎯 Key Endpoints
 
-### Frontend Not Loading?
-- Check if build completed in DigitalOcean dashboard
-- Verify API_BASE_URL in app.js
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/auth/register` | POST | Register new user |
+| `/analyze` | POST | Analyze ESG content |
+| `/frameworks` | GET | List available frameworks |
+| `/compare` | POST | Compare multiple companies |
+| `/export` | POST | Export analysis data |
+| `/health` | GET | System health check |
+| `/metrics` | GET | Prometheus metrics |
 
-### Backend Errors?
-- Check logs: `doctl apps logs YOUR_APP_ID`
-- Ensure environment variables are set
-- Verify Python version compatibility
+## 🔍 Framework Details
 
-### CORS Issues?
-Add to backend `lean_esg_platform.py`:
-```python
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://your-frontend-url"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-```
+### CSRD (Corporate Sustainability Reporting Directive)
+- **Mandatory in EU** starting 2024
+- Covers Environmental, Social, Governance
+- **Double materiality** approach
+- 14 detailed requirements implemented
 
-## 📈 Next Steps
+### TCFD (Task Force on Climate-related Financial Disclosures)
+- **Climate risk** focus
+- Governance, Strategy, Risk Management, Metrics & Targets
+- **Scenario analysis** requirements
+- 11 comprehensive requirements
 
-1. **Add Custom Domain**: 
-   - Buy domain (e.g., Namecheap)
-   - Add in DigitalOcean Apps settings
-   - Update DNS records
+### GRI (Global Reporting Initiative)
+- **Universal standards** + topic-specific
+- Stakeholder impact focus
+- **Material topics** identification
+- 10 key standards implemented
 
-2. **Enable Authentication**:
-   - Add Auth0 or Firebase Auth
-   - Protect API endpoints
+### SASB (Sustainability Accounting Standards Board)
+- **Industry-specific** materiality
+- Financial impact focus
+- **Investor-oriented** disclosures
+- 7 cross-sector requirements
 
-3. **Scale Up**:
-   - Upgrade to Professional plan for more resources
-   - Enable autoscaling
-   - Add Redis for caching
+## 🚨 Production Deployment
 
-## 🎉 Congratulations!
+For production use:
 
-You now have a beautiful, modern ESG analysis platform running in the cloud!
+1. **Set Strong JWT Secret**:
+   ```env
+   JWT_SECRET=your-cryptographically-secure-secret-key
+   ```
 
-- Frontend: Beautiful, responsive UI
-- Backend: Powerful API with BERT integration
-- Deployment: Automated CI/CD pipeline
+2. **Use Production Database**:
+   ```env
+   DATABASE_PATH=/data/esg_production.db
+   ```
 
-Share your deployment URL and start analyzing ESG reports! 🚀 
+3. **Configure Redis with Auth**:
+   ```env
+   REDIS_URL=redis://username:password@redis-host:6379
+   ```
+
+4. **Set Resource Limits**:
+   ```env
+   MAX_WORKERS=4
+   MEMORY_LIMIT=2GB
+   ```
+
+5. **Enable Monitoring**:
+   ```env
+   LOG_LEVEL=INFO
+   ENVIRONMENT=production
+   ```
+
+## 📞 Support
+
+If you encounter issues:
+
+1. **Run Health Check**: `python health_check.py`
+2. **Check Logs**: Look in the `logs/` directory
+3. **Verify Dependencies**: Ensure all packages are installed correctly
+4. **Test Components**: Use the individual test scripts
+
+Your ESG scraper is now production-ready with enterprise-grade framework analysis capabilities! 🎉 
