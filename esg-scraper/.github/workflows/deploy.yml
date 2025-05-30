@@ -1,0 +1,171 @@
+name: Deploy to DigitalOcean
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: registry.digitalocean.com
+  IMAGE_NAME: esg-analyzer
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install dependencies
+        run: |
+          cd esg-scraper
+          python -m pip install --upgrade pip
+          pip install -r requirements_lean.txt
+          pip install pytest pytest-asyncio
+      
+      - name: Run tests
+        run: |
+          cd esg-scraper
+          pytest test_esg_service.py -v
+      
+      - name: Check code quality
+        run: |
+          cd esg-scraper
+          pip install flake8 black
+          # Check formatting
+          black --check .
+          # Check linting
+          flake8 . --max-line-length=120 --exclude=venv,__pycache__
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+      
+      - name: Build container image
+        run: |
+          cd esg-scraper
+          docker build -t ${{ env.REGISTRY }}/${{ secrets.DO_REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:latest -f Dockerfile.bert .
+          docker build -t ${{ env.REGISTRY }}/${{ secrets.DO_REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} -f Dockerfile.bert .
+      
+      - name: Log in to DigitalOcean Container Registry
+        run: doctl registry login --expiry-seconds 1200
+      
+      - name: Push image to DigitalOcean Container Registry
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ secrets.DO_REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:latest
+          docker push ${{ env.REGISTRY }}/${{ secrets.DO_REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+  deploy-frontend:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Deploy frontend to DigitalOcean App Platform
+        uses: digitalocean/app_action@v1.1.5
+        with:
+          app_name: esg-analyzer-frontend
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+  deploy-backend:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Deploy backend to DigitalOcean App Platform
+        uses: digitalocean/app_action@v1.1.5
+        with:
+          app_name: esg-analyzer-backend
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+      
+      - name: Run database migrations
+        run: |
+          # Add database migration commands here if needed
+          echo "Running database migrations..."
+
+  health-check:
+    needs: [deploy-frontend, deploy-backend]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Wait for deployment
+        run: sleep 60
+      
+      - name: Check frontend health
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://esg-analyzer.com)
+          if [ $response -eq 200 ]; then
+            echo "Frontend is healthy"
+          else
+            echo "Frontend health check failed with status $response"
+            exit 1
+          fi
+      
+      - name: Check backend health
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://api.esg-analyzer.com/health)
+          if [ $response -eq 200 ]; then
+            echo "Backend is healthy"
+          else
+            echo "Backend health check failed with status $response"
+            exit 1
+          fi
+      
+      - name: Test API endpoint
+        run: |
+          response=$(curl -s -X POST https://api.esg-analyzer.com/api/analyze \
+            -H "Content-Type: application/json" \
+            -d '{"content": "Test ESG content", "frameworks": ["CSRD"]}' \
+            | jq -r '.scores.overall')
+          
+          if [ ! -z "$response" ]; then
+            echo "API test successful, score: $response"
+          else
+            echo "API test failed"
+            exit 1
+          fi
+
+  notify:
+    needs: health-check
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Notify deployment status
+        uses: 8398a7/action-slack@v3
+        if: ${{ secrets.SLACK_WEBHOOK_URL }}
+        with:
+          status: ${{ job.status }}
+          text: |
+            ESG Analyzer Deployment ${{ job.status }}
+            Commit: ${{ github.sha }}
+            Author: ${{ github.actor }}
+            Message: ${{ github.event.head_commit.message }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} 

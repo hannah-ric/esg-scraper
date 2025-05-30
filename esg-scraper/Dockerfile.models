@@ -1,0 +1,18 @@
+# Model Downloader Dockerfile
+FROM python:3.9-slim
+
+# Install dependencies
+RUN pip install --no-cache-dir transformers torch sentencepiece
+
+# Set cache directory
+ENV TRANSFORMERS_CACHE=/cache
+ENV HF_HOME=/cache
+
+# Create cache directory
+RUN mkdir -p /cache /models
+
+# Copy download script
+COPY download_models.py /download_models.py
+
+# Run download script by default
+CMD ["python", "/download_models.py"] 

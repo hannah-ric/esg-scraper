@@ -1,0 +1,25 @@
+# BERT Integration Requirements
+# These are in addition to requirements_lean.txt
+
+# Core BERT dependencies
+transformers==4.36.0
+torch==2.1.1 --index-url https://download.pytorch.org/whl/cpu
+tokenizers==0.15.0
+sentencepiece==0.1.99
+
+# For sentence embeddings (Phase 2)
+sentence-transformers==2.2.2
+
+# Model optimization
+onnx==1.15.0
+onnxruntime==1.16.3
+
+# Additional NLP tools
+nltk==3.8.1
+spacy==3.7.2
+
+# For async processing
+aiofiles==23.2.1
+
+# Model caching
+diskcache==5.6.3 

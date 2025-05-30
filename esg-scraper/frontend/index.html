@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESG Analyzer - Modern ESG Analysis Platform</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="gradient-bg text-white shadow-lg">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    <h1 class="text-2xl font-bold">ESG Analyzer</h1>
+                </div>
+                <nav class="hidden md:flex space-x-6">
+                    <a href="#analyze" class="hover:text-purple-200 transition">Analyze</a>
+                    <a href="#features" class="hover:text-purple-200 transition">Features</a>
+                    <a href="#api" class="hover:text-purple-200 transition">API</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="gradient-bg text-white py-20">
+        <div class="container mx-auto px-6 text-center">
+            <h2 class="text-4xl md:text-5xl font-bold mb-4">
+                AI-Powered ESG Analysis
+            </h2>
+            <p class="text-xl mb-8 text-purple-100">
+                Analyze sustainability reports with advanced BERT models and framework compliance checking
+            </p>
+            <div class="flex justify-center space-x-4">
+                <button onclick="scrollToAnalyze()" class="bg-white text-purple-700 px-8 py-3 rounded-lg font-semibold hover:bg-purple-50 transition transform hover:scale-105">
+                    Start Analysis
+                </button>
+                <a href="https://github.com/hannah-ric/esg-scraper" target="_blank" class="bg-purple-800 text-white px-8 py-3 rounded-lg font-semibold hover:bg-purple-900 transition transform hover:scale-105">
+                    View on GitHub
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Analysis Section -->
+    <section id="analyze" class="py-16">
+        <div class="container mx-auto px-6">
+            <div class="max-w-4xl mx-auto">
+                <!-- Analysis Form -->
+                <div class="glass-effect rounded-2xl shadow-xl p-8 mb-8">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-6">Analyze ESG Content</h3>
+                    
+                    <form id="analysisForm" class="space-y-6">
+                        <!-- Content Input -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                ESG Report Content
+                            </label>
+                            <textarea 
+                                id="content" 
+                                rows="6" 
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                                placeholder="Paste your ESG report text here..."
+                                required
+                            ></textarea>
+                        </div>
+
+                        <!-- Company Name -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Company Name (Optional)
+                            </label>
+                            <input 
+                                type="text" 
+                                id="companyName"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition"
+                                placeholder="Enter company name"
+                            >
+                        </div>
+
+                        <!-- Analysis Options -->
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <!-- Frameworks -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Frameworks to Check
+                                </label>
+                                <div class="space-y-2">
+                                    <label class="flex items-center">
+                                        <input type="checkbox" value="CSRD" checked class="mr-2 text-purple-600">
+                                        <span>CSRD</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" value="TCFD" checked class="mr-2 text-purple-600">
+                                        <span>TCFD</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" value="GRI" class="mr-2 text-purple-600">
+                                        <span>GRI</span>
+                                    </label>
+                                    <label class="flex items-center">
+                                        <input type="checkbox" value="SASB" class="mr-2 text-purple-600">
+                                        <span>SASB</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Analysis Type -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Analysis Type
+                                </label>
+                                <select id="analysisType" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition">
+                                    <option value="quick">Quick (Keyword-based)</option>
+                                    <option value="standard" selected>Standard (BERT-enhanced)</option>
+                                    <option value="deep">Deep (Full BERT Suite)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button 
+                            type="submit" 
+                            class="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition transform hover:scale-105 flex items-center justify-center space-x-2"
+                        >
+                            <span>Analyze Content</span>
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                            </svg>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Results Section -->
+                <div id="results" class="hidden fade-in">
+                    <!-- ESG Scores -->
+                    <div class="glass-effect rounded-2xl shadow-xl p-8 mb-8">
+                        <h3 class="text-2xl font-bold text-gray-800 mb-6">ESG Scores</h3>
+                        <div class="grid md:grid-cols-3 gap-6">
+                            <div class="text-center">
+                                <div class="relative w-32 h-32 mx-auto mb-4">
+                                    <svg class="transform -rotate-90 w-32 h-32">
+                                        <circle cx="64" cy="64" r="56" stroke="#e5e7eb" stroke-width="12" fill="none"></circle>
+                                        <circle id="envCircle" cx="64" cy="64" r="56" stroke="#10b981" stroke-width="12" fill="none" stroke-dasharray="351.86" stroke-dashoffset="351.86"></circle>
+                                    </svg>
+                                    <div class="absolute inset-0 flex items-center justify-center">
+                                        <span id="envScore" class="text-3xl font-bold text-gray-800">0</span>
+                                    </div>
+                                </div>
+                                <h4 class="text-lg font-semibold text-gray-700">Environmental</h4>
+                            </div>
+                            
+                            <div class="text-center">
+                                <div class="relative w-32 h-32 mx-auto mb-4">
+                                    <svg class="transform -rotate-90 w-32 h-32">
+                                        <circle cx="64" cy="64" r="56" stroke="#e5e7eb" stroke-width="12" fill="none"></circle>
+                                        <circle id="socCircle" cx="64" cy="64" r="56" stroke="#3b82f6" stroke-width="12" fill="none" stroke-dasharray="351.86" stroke-dashoffset="351.86"></circle>
+                                    </svg>
+                                    <div class="absolute inset-0 flex items-center justify-center">
+                                        <span id="socScore" class="text-3xl font-bold text-gray-800">0</span>
+                                    </div>
+                                </div>
+                                <h4 class="text-lg font-semibold text-gray-700">Social</h4>
+                            </div>
+                            
+                            <div class="text-center">
+                                <div class="relative w-32 h-32 mx-auto mb-4">
+                                    <svg class="transform -rotate-90 w-32 h-32">
+                                        <circle cx="64" cy="64" r="56" stroke="#e5e7eb" stroke-width="12" fill="none"></circle>
+                                        <circle id="govCircle" cx="64" cy="64" r="56" stroke="#8b5cf6" stroke-width="12" fill="none" stroke-dasharray="351.86" stroke-dashoffset="351.86"></circle>
+                                    </svg>
+                                    <div class="absolute inset-0 flex items-center justify-center">
+                                        <span id="govScore" class="text-3xl font-bold text-gray-800">0</span>
+                                    </div>
+                                </div>
+                                <h4 class="text-lg font-semibold text-gray-700">Governance</h4>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Insights -->
+                    <div class="glass-effect rounded-2xl shadow-xl p-8 mb-8">
+                        <h3 class="text-2xl font-bold text-gray-800 mb-6">Key Insights</h3>
+                        <div id="insights" class="space-y-3"></div>
+                    </div>
+
+                    <!-- Greenwashing Assessment -->
+                    <div id="greenwashingSection" class="glass-effect rounded-2xl shadow-xl p-8 mb-8 hidden">
+                        <h3 class="text-2xl font-bold text-gray-800 mb-6">Greenwashing Assessment</h3>
+                        <div id="greenwashingContent"></div>
+                    </div>
+
+                    <!-- Framework Coverage -->
+                    <div class="glass-effect rounded-2xl shadow-xl p-8">
+                        <h3 class="text-2xl font-bold text-gray-800 mb-6">Framework Coverage</h3>
+                        <div id="frameworkCoverage" class="space-y-4"></div>
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div id="loading" class="hidden">
+                    <div class="flex flex-col items-center justify-center py-16">
+                        <div class="loading-spinner mb-4"></div>
+                        <p class="text-gray-600">Analyzing your content...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-16 bg-gray-100">
+        <div class="container mx-auto px-6">
+            <h2 class="text-3xl font-bold text-center text-gray-800 mb-12">Platform Features</h2>
+            <div class="grid md:grid-cols-3 gap-8">
+                <div class="bg-white rounded-xl shadow-lg p-6 transform hover:scale-105 transition">
+                    <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-800 mb-2">AI-Powered Analysis</h3>
+                    <p class="text-gray-600">Advanced BERT models for accurate ESG categorization and sentiment analysis</p>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-lg p-6 transform hover:scale-105 transition">
+                    <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-800 mb-2">Framework Compliance</h3>
+                    <p class="text-gray-600">Check compliance with CSRD, TCFD, GRI, and SASB frameworks</p>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-lg p-6 transform hover:scale-105 transition">
+                    <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-800 mb-2">Greenwashing Detection</h3>
+                    <p class="text-gray-600">Identify vague claims and unsubstantiated sustainability statements</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-8">
+        <div class="container mx-auto px-6">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0">
+                    <p>&copy; 2024 ESG Analyzer. All rights reserved.</p>
+                </div>
+                <div class="flex space-x-6">
+                    <a href="/docs" class="hover:text-purple-400 transition">API Docs</a>
+                    <a href="https://github.com/hannah-ric/esg-scraper" class="hover:text-purple-400 transition">GitHub</a>
+                    <a href="#" class="hover:text-purple-400 transition">Privacy</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html> 

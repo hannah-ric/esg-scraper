@@ -1,0 +1,134 @@
+version: '3.8'
+
+services:
+  esg-bert:
+    build:
+      context: .
+      dockerfile: Dockerfile.bert
+    container_name: esg-bert-platform
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=sqlite:///./esg_analysis.db
+      - JWT_SECRET=${JWT_SECRET}
+      - ENABLE_BERT=true
+      - BERT_CACHE_DIR=/app/bert_cache
+      - BERT_USE_GPU=false
+      - BERT_BATCH_SIZE=8
+      - BERT_MODEL_TIMEOUT=30
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - bert-cache:/app/bert_cache
+      - bert-models:/app/models
+    depends_on:
+      - redis
+      - model-downloader
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+
+  redis:
+    image: redis:7-alpine
+    container_name: esg-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  model-downloader:
+    build:
+      context: .
+      dockerfile: Dockerfile.models
+    container_name: bert-model-downloader
+    volumes:
+      - bert-models:/models
+      - bert-cache:/cache
+    environment:
+      - TRANSFORMERS_CACHE=/cache
+      - HF_HOME=/cache
+    command: |
+      python -c "
+      print('Downloading BERT models...')
+      from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
+      
+      # Download DistilBERT-ESG
+      print('Downloading DistilBERT-ESG...')
+      tokenizer = AutoTokenizer.from_pretrained('descartes100/distilBERT_ESG')
+      model = AutoModelForSequenceClassification.from_pretrained('descartes100/distilBERT_ESG')
+      
+      # Download FinBERT-ESG-9
+      print('Downloading FinBERT-ESG-9-Categories...')
+      pipeline('text-classification', model='yiyanghkust/finbert-esg-9-categories')
+      
+      print('Models downloaded successfully!')
+      "
+
+  nginx:
+    image: nginx:alpine
+    container_name: esg-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx-bert.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - esg-bert
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: esg-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus-bert.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: esg-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  bert-cache:
+  bert-models:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  default:
+    name: esg-network 
