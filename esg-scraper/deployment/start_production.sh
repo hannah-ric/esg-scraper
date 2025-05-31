@@ -24,7 +24,7 @@ echo "✅ Redis server started successfully"
 echo "🗄️  Initializing database..."
 python -c "
 import os
-from database_schema import EnhancedDatabaseManager
+from lean_esg_platform import EnhancedDatabaseManager
 
 # Create database manager and initialize schema
 db_path = os.getenv('DATABASE_PATH', '/app/data/esg_data.db')
