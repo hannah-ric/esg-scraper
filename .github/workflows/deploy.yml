@@ -116,6 +116,11 @@ jobs:
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
       
+      - name: Install jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+      
       - name: Deploy to DigitalOcean App Platform
         run: |
           # Update app spec with new image
@@ -132,10 +137,32 @@ jobs:
       - name: Get app URL
         id: get_url
         run: |
-          # Wait a bit for app creation to register
-          sleep 10
+          # Wait for app to be created/updated
+          echo "Waiting for app deployment to start..."
+          sleep 30
+          
+          # Get app ID
           APP_ID=$(doctl apps list --format ID,Spec.Name --no-header | grep esg-scraper | awk '{print $1}')
-          APP_URL=$(doctl apps get $APP_ID --format LiveURL --no-header)
+          echo "App ID: $APP_ID"
+          
+          # Get app details and extract URL
+          echo "Getting app details..."
+          doctl apps get $APP_ID --format json > app_details.json
+          
+          # Extract the live URL from the JSON
+          APP_URL=$(cat app_details.json | jq -r '.live_url // empty')
+          
+          # If no live URL yet, construct it from the default domain
+          if [ -z "$APP_URL" ]; then
+            DEFAULT_DOMAIN=$(cat app_details.json | jq -r '.default_ingress // empty')
+            if [ -n "$DEFAULT_DOMAIN" ]; then
+              APP_URL="https://$DEFAULT_DOMAIN"
+            else
+              # Fallback: construct from app name
+              APP_URL="https://esg-scraper-$(echo $APP_ID | cut -c1-5).ondigitalocean.app"
+            fi
+          fi
+          
           echo "App URL: $APP_URL"
           echo "url=$APP_URL" >> $GITHUB_OUTPUT
 
@@ -145,7 +172,11 @@ jobs:
     
     steps:
       - name: Wait for deployment
-        run: sleep 120
+        run: |
+          echo "Waiting for app deployment to complete..."
+          echo "App URL: ${{ needs.deploy-app.outputs.app_url }}"
+          echo "Waiting 3 minutes for deployment..."
+          sleep 180
       
       - name: Check API health
         run: |
