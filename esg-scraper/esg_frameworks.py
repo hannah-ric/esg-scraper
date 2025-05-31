@@ -4,7 +4,7 @@ ESG Framework Analysis Module
 
 This module provides comprehensive ESG framework analysis capabilities including:
 - CSRD (Corporate Sustainability Reporting Directive)
-- GRI (Global Reporting Initiative) 
+- GRI (Global Reporting Initiative)
 - SASB (Sustainability Accounting Standards Board)
 - TCFD (Task Force on Climate-related Financial Disclosures)
 
@@ -13,7 +13,7 @@ Each framework includes specific requirements, keywords, and metrics extraction 
 
 from enum import Enum
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set, Tuple, Any
+from typing import List, Dict, Any, Tuple
 import re
 from collections import defaultdict
 
@@ -650,7 +650,8 @@ class ESGFrameworkManager:
                 framework=Framework.SASB,
                 category="Governance",
                 subcategory="Business Environment",
-                description="Description of how the organization identifies, assesses, and manages sustainability risks",
+                description="Description of how the organization identifies, assesses, and manages "
+                "sustainability risks",
                 keywords=[
                     "sustainability risk",
                     "risk management",
@@ -726,7 +727,8 @@ class ESGFrameworkManager:
                 framework=Framework.TCFD,
                 category="Environmental",
                 subcategory="Business Impact",
-                description="Impact of climate-related risks and opportunities on business, strategy, and financial planning",
+                description="Impact of climate-related risks and opportunities on business, "
+                "strategy, and financial planning",
                 keywords=[
                     "business impact",
                     "strategic impact",
@@ -880,30 +882,20 @@ class ESGFrameworkManager:
         """Build regex patterns for metrics extraction"""
         extractors = {
             "percentage": re.compile(r"(\d+\.?\d*)\s*%", re.IGNORECASE),
-            "emissions": re.compile(
-                r"(\d+\.?\d*)\s*(t|tonnes|tons).*co2", re.IGNORECASE
-            ),
+            "emissions": re.compile(r"(\d+\.?\d*)\s*(t|tonnes|tons).*co2", re.IGNORECASE),
             "energy": re.compile(r"(\d+\.?\d*)\s*(kwh|mwh|gwh|tj|pj)", re.IGNORECASE),
-            "water": re.compile(
-                r"(\d+\.?\d*)\s*(m3|liters|litres|megalit)", re.IGNORECASE
-            ),
-            "waste": re.compile(
-                r"(\d+\.?\d*)\s*(kg|tonnes|tons).*waste", re.IGNORECASE
-            ),
+            "water": re.compile(r"(\d+\.?\d*)\s*(m3|liters|litres|megalit)", re.IGNORECASE),
+            "waste": re.compile(r"(\d+\.?\d*)\s*(kg|tonnes|tons).*waste", re.IGNORECASE),
             "currency": re.compile(
                 r"(\d+\.?\d*)\s*(million|billion|trillion).*(\$|USD|EUR|GBP)",
                 re.IGNORECASE,
             ),
-            "employees": re.compile(
-                r"(\d+\.?\d*)\s*(employees|workers|staff|people)", re.IGNORECASE
-            ),
+            "employees": re.compile(r"(\d+\.?\d*)\s*(employees|workers|staff|people)", re.IGNORECASE),
         }
 
         return extractors
 
-    def find_relevant_requirements(
-        self, content: str
-    ) -> Dict[Framework, List[DisclosureRequirement]]:
+    def find_relevant_requirements(self, content: str) -> Dict[Framework, List[DisclosureRequirement]]:
         """Find requirements that match content based on keywords"""
         content_lower = content.lower()
         relevant_reqs = defaultdict(list)
@@ -956,9 +948,7 @@ class ESGFrameworkManager:
                                     value = match
                                     unit = ""
 
-                                metrics[req.requirement_id][req.category].append(
-                                    f"{value} {unit}".strip()
-                                )
+                                metrics[req.requirement_id][req.category].append(f"{value} {unit}".strip())
                         except re.error:
                             continue  # Skip invalid regex patterns
 
@@ -975,9 +965,7 @@ class ESGFrameworkManager:
             found_reqs = found_requirements.get(framework, [])
             found_ids = {req.requirement_id for req in found_reqs}
 
-            missing_reqs = [
-                req for req in all_reqs if req.requirement_id not in found_ids
-            ]
+            missing_reqs = [req for req in all_reqs if req.requirement_id not in found_ids]
             gaps[framework] = missing_reqs
 
         return gaps
@@ -992,9 +980,7 @@ class ESGFrameworkManager:
             total_reqs = len(self.requirements[framework])
             found_reqs = len(found_requirements.get(framework, []))
 
-            coverage[framework] = (
-                (found_reqs / total_reqs * 100) if total_reqs > 0 else 0
-            )
+            coverage[framework] = (found_reqs / total_reqs * 100) if total_reqs > 0 else 0
 
         return coverage
 
@@ -1024,16 +1010,12 @@ def get_framework_manager() -> ESGFrameworkManager:
     return ESGFrameworkManager()
 
 
-def analyze_text_against_frameworks(
-    content: str, frameworks: List[str] = None
-) -> Dict[str, Any]:
+def analyze_text_against_frameworks(content: str, frameworks: List[str] = None) -> Dict[str, Any]:
     """Quick analysis of text content against specified frameworks"""
     manager = ESGFrameworkManager()
 
     if frameworks:
-        framework_enums = [
-            Framework[name] for name in frameworks if name in Framework.__members__
-        ]
+        framework_enums = [Framework[name] for name in frameworks if name in Framework.__members__]
     else:
         framework_enums = list(Framework)
 
@@ -1042,9 +1024,7 @@ def analyze_text_against_frameworks(
 
     # Filter by requested frameworks
     filtered_requirements = {
-        framework: reqs
-        for framework, reqs in found_requirements.items()
-        if framework in framework_enums
+        framework: reqs for framework, reqs in found_requirements.items() if framework in framework_enums
     }
 
     # Calculate coverage
@@ -1074,17 +1054,17 @@ if __name__ == "__main__":
     manager = ESGFrameworkManager()
 
     sample_text = """
-    Our company has committed to achieving net zero emissions by 2030. We have implemented 
-    a comprehensive transition plan that includes reducing scope 1 and scope 2 emissions by 
-    50% over the next 5 years. Our board has established a climate committee with oversight 
+    Our company has committed to achieving net zero emissions by 2030. We have implemented
+    a comprehensive transition plan that includes reducing scope 1 and scope 2 emissions by
+    50% over the next 5 years. Our board has established a climate committee with oversight
     responsibilities for climate-related risks and opportunities.
-    
-    We have conducted scenario analysis including 1.5 degree and 2 degree warming scenarios 
-    to assess the resilience of our business strategy. Physical risks include increased 
+
+    We have conducted scenario analysis including 1.5 degree and 2 degree warming scenarios
+    to assess the resilience of our business strategy. Physical risks include increased
     flooding and extreme weather events that could impact our operations.
-    
-    Our workforce diversity initiatives have resulted in 40% women in senior management 
-    positions. We provide extensive training on anti-corruption policies and have had 
+
+    Our workforce diversity initiatives have resulted in 40% women in senior management
+    positions. We provide extensive training on anti-corruption policies and have had
     zero confirmed incidents of corruption this year.
     """
 

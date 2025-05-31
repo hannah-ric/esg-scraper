@@ -4,15 +4,12 @@ Simple fallback web scraper using only BeautifulSoup
 
 import requests
 from bs4 import BeautifulSoup
-import time
 
 
 def simple_scrape(url: str, timeout: int = 10) -> str:
     """Simple web scraping fallback"""
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
-        }
+        headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
 
         response = requests.get(url, headers=headers, timeout=timeout)
         response.raise_for_status()

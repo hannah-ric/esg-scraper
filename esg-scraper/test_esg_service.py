@@ -6,24 +6,15 @@ Tests all API endpoints, security features, and core functionality
 
 import os
 import sys
-import json
 import time
-import asyncio
-import pytest
 from datetime import datetime
-from typing import Dict, Any
+
+import requests
 
 # Set test environment
 os.environ["JWT_SECRET"] = "test-secret-key"
 os.environ["REDIS_URL"] = "redis://localhost:6379"
 os.environ["DATABASE_PATH"] = "test_esg.db"
-
-# Import after setting environment
-from lean_esg_platform import app, create_token, engine, scraper, db_manager
-from fastapi.testclient import TestClient
-
-import requests
-from datetime import datetime
 
 # Configuration
 BASE_URL = "http://localhost:5000"
@@ -47,9 +38,9 @@ class Colors:
 
 def print_header(text):
     """Print a formatted header"""
-    print(f"\n{Colors.BOLD}{Colors.BLUE}{'='*60}{Colors.RESET}")
+    print(f"\n{Colors.BOLD}{Colors.BLUE}{'=' * 60}{Colors.RESET}")
     print(f"{Colors.BOLD}{Colors.BLUE}{text:^60}{Colors.RESET}")
-    print(f"{Colors.BOLD}{Colors.BLUE}{'='*60}{Colors.RESET}\n")
+    print(f"{Colors.BOLD}{Colors.BLUE}{'=' * 60}{Colors.RESET}\n")
 
 
 def print_success(text):
@@ -93,7 +84,7 @@ def test_web_interface():
         response = requests.get(BASE_URL)
         if response.status_code == 200 and "ESG Intelligence Platform" in response.text:
             print_success("Web interface is accessible")
-            print_info(f"Page title found in HTML")
+            print_info("Page title found in HTML")
             return True
         else:
             print_error("Web interface not accessible")
@@ -111,9 +102,7 @@ def test_url_scraping():
     print_info(f"Testing with URL: {test_url}")
 
     try:
-        response = requests.post(
-            f"{BASE_URL}/api/scrape", json={"url": test_url, "depth": 1}, timeout=30
-        )
+        response = requests.post(f"{BASE_URL}/api/scrape", json={"url": test_url, "depth": 1}, timeout=30)
 
         if response.status_code == 200:
             data = response.json()
@@ -126,9 +115,7 @@ def test_url_scraping():
                     f"S: {result['scores']['social']}%, "
                     f"G: {result['scores']['governance']}%"
                 )
-                print_info(
-                    f"Keywords found: {', '.join(result['top_keywords'][:5])}..."
-                )
+                print_info(f"Keywords found: {', '.join(result['top_keywords'][:5])}...")
                 return True
             else:
                 print_error("No results returned from scraping")
@@ -149,18 +136,14 @@ def test_crawling():
     print_info(f"Testing crawl with URL: {test_url} (depth: 2)")
 
     try:
-        response = requests.post(
-            f"{BASE_URL}/api/scrape", json={"url": test_url, "depth": 2}, timeout=60
-        )
+        response = requests.post(f"{BASE_URL}/api/scrape", json={"url": test_url, "depth": 2}, timeout=60)
 
         if response.status_code == 200:
             data = response.json()
             if "results" in data:
-                print_success(
-                    f"Crawling successful - found {len(data['results'])} pages"
-                )
+                print_success(f"Crawling successful - found {len(data['results'])} pages")
                 for i, result in enumerate(data["results"][:3]):
-                    print_info(f"  Page {i+1}: {result.get('url', 'N/A')}")
+                    print_info(f"  Page {i + 1}: {result.get('url', 'N/A')}")
                 return True
             else:
                 print_error("No results from crawling")
@@ -176,24 +159,6 @@ def test_crawling():
 def test_pdf_analysis():
     """Test PDF analysis functionality"""
     print_header("Testing PDF Analysis")
-
-    # Create a simple test PDF content
-    test_pdf_content = b"""
-    %PDF-1.4
-    1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
-    2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj
-    3 0 obj<</Type/Page/MediaBox[0 0 612 792]/Parent 2 0 R/Resources<<>>>>endobj
-    xref
-    0 4
-    0000000000 65535 f
-    0000000009 00000 n
-    0000000058 00000 n
-    0000000115 00000 n
-    trailer<</Size 4/Root 1 0 R>>
-    startxref
-    203
-    %%EOF
-    """
 
     print_info("Note: PDF testing requires a valid PDF file")
     print_info("Skipping automated PDF test - manual testing recommended")
@@ -211,9 +176,7 @@ def test_database_retrieval():
             data = response.json()
             if "documents" in data:
                 doc_count = len(data["documents"])
-                print_success(
-                    f"Database retrieval successful - {doc_count} documents found"
-                )
+                print_success(f"Database retrieval successful - {doc_count} documents found")
 
                 if doc_count > 0:
                     latest = data["documents"][0]
@@ -224,9 +187,7 @@ def test_database_retrieval():
                 print_error("Invalid response format")
                 return False
         else:
-            print_error(
-                f"Database retrieval failed with status: {response.status_code}"
-            )
+            print_error(f"Database retrieval failed with status: {response.status_code}")
             return False
     except Exception as e:
         print_error(f"Database retrieval error: {str(e)}")
@@ -240,11 +201,9 @@ def test_error_handling():
     # Test invalid URL
     print_info("Testing with invalid URL...")
     try:
-        response = requests.post(
-            f"{BASE_URL}/api/scrape", json={"url": "not-a-valid-url", "depth": 1}
-        )
+        response = requests.post(f"{BASE_URL}/api/scrape", json={"url": "not-a-valid-url", "depth": 1})
         print_success(f"Invalid URL handled properly - status: {response.status_code}")
-    except:
+    except Exception:
         print_error("Invalid URL caused unexpected error")
         return False
 
@@ -257,7 +216,7 @@ def test_error_handling():
         else:
             print_error("Missing parameters not handled correctly")
             return False
-    except:
+    except Exception:
         print_error("Missing parameters caused unexpected error")
         return False
 
@@ -281,9 +240,9 @@ def run_performance_test():
 
         try:
             if method == "GET":
-                response = requests.get(f"{BASE_URL}{endpoint}")
+                requests.get(f"{BASE_URL}{endpoint}")
             else:
-                response = requests.post(f"{BASE_URL}{endpoint}", json=data)
+                requests.post(f"{BASE_URL}{endpoint}", json=data)
 
             elapsed = time.time() - start_time
 
@@ -310,7 +269,7 @@ def main():
     print("\nChecking if server is running...")
     try:
         requests.get(BASE_URL, timeout=5)
-    except:
+    except Exception:
         print_error("Server is not responding!")
         print_info("Please ensure the Docker container is running:")
         print_info("  docker-compose up -d")
@@ -348,11 +307,7 @@ def main():
 
     print(f"\n{Colors.BOLD}Results:{Colors.RESET}")
     for test_name, result in results:
-        status = (
-            f"{Colors.GREEN}PASSED{Colors.RESET}"
-            if result
-            else f"{Colors.RED}FAILED{Colors.RESET}"
-        )
+        status = f"{Colors.GREEN}PASSED{Colors.RESET}" if result else f"{Colors.RED}FAILED{Colors.RESET}"
         print(f"  {test_name:<20} {status}")
 
     print(f"\n{Colors.BOLD}Total: {passed}/{total} tests passed{Colors.RESET}")

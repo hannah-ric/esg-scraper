@@ -12,9 +12,7 @@ def main():
 
     # Check Python version
     python_version = sys.version_info
-    print(
-        f"Python Version: {python_version.major}.{python_version.minor}.{python_version.micro}"
-    )
+    print(f"Python Version: {python_version.major}.{python_version.minor}.{python_version.micro}")
 
     if python_version < (3, 9):
         print("❌ Python 3.9+ required")
@@ -103,7 +101,7 @@ def main():
         print(f"❌ ESG Framework Manager failed: {e}")
         return False
 
-    print(f"\n🎉 Health check passed!")
+    print("\n🎉 Health check passed!")
     print(f"📊 {len(critical_imports)} critical imports OK")
     print(f"📊 {optional_passed}/{len(optional_imports)} optional imports available")
     print("\n🚀 Ready to run ESG Scraper!")

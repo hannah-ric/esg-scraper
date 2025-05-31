@@ -180,14 +180,14 @@ CREATE INDEX IF NOT EXISTS idx_user_activity_user_id ON user_activity(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_activity_type ON user_activity(activity_type);
 
 -- Create triggers for automatic timestamp updates
-CREATE TRIGGER IF NOT EXISTS update_analyses_timestamp 
+CREATE TRIGGER IF NOT EXISTS update_analyses_timestamp
     AFTER UPDATE ON analyses
     FOR EACH ROW
     BEGIN
         UPDATE analyses SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
     END;
 
-CREATE TRIGGER IF NOT EXISTS update_company_profiles_timestamp 
+CREATE TRIGGER IF NOT EXISTS update_company_profiles_timestamp
     AFTER UPDATE ON company_profiles
     FOR EACH ROW
     BEGIN
@@ -196,7 +196,7 @@ CREATE TRIGGER IF NOT EXISTS update_company_profiles_timestamp
 
 -- Views for common queries
 CREATE VIEW IF NOT EXISTS latest_company_scores AS
-SELECT 
+SELECT
     company_name,
     MAX(analysis_date) as latest_date,
     environmental_score,
@@ -208,7 +208,7 @@ FROM historical_scores
 GROUP BY company_name;
 
 CREATE VIEW IF NOT EXISTS framework_compliance_summary AS
-SELECT 
+SELECT
     a.company_name,
     a.industry_sector,
     fc.framework,
@@ -221,7 +221,7 @@ JOIN framework_compliance fc ON a.id = fc.analysis_id
 WHERE a.company_name IS NOT NULL;
 
 CREATE VIEW IF NOT EXISTS critical_gaps_summary AS
-SELECT 
+SELECT
     a.company_name,
     a.industry_sector,
     ga.framework,
@@ -234,7 +234,10 @@ AND a.company_name IS NOT NULL
 GROUP BY a.company_name, a.industry_sector, ga.framework, a.created_at;
 
 -- Sample data population (optional)
-INSERT OR IGNORE INTO benchmark_data (industry_sector, framework, category, metric_name, percentile_25, percentile_50, percentile_75, percentile_90, sample_size) VALUES
+INSERT OR IGNORE INTO benchmark_data
+    (industry_sector, framework, category, metric_name, percentile_25,
+     percentile_50, percentile_75, percentile_90, sample_size)
+VALUES
 ('Technology', 'CSRD', 'Environmental', 'GHG Scope 1 Reduction %', 15.0, 25.0, 35.0, 50.0, 150),
 ('Technology', 'CSRD', 'Environmental', 'GHG Scope 2 Reduction %', 20.0, 35.0, 50.0, 70.0, 150),
 ('Technology', 'CSRD', 'Social', 'Women in Management %', 25.0, 35.0, 45.0, 55.0, 150),
@@ -276,7 +279,7 @@ def get_table_creation_statements():
 def get_framework_compliance_query():
     """SQL query to get framework compliance summary"""
     return """
-    SELECT 
+    SELECT
         a.company_name,
         a.industry_sector,
         a.overall_score,
@@ -300,7 +303,7 @@ def get_framework_compliance_query():
 def get_industry_benchmark_query():
     """SQL query to get industry benchmarking data"""
     return """
-    SELECT 
+    SELECT
         industry_sector,
         framework,
         category,
@@ -320,7 +323,7 @@ def get_industry_benchmark_query():
 def get_company_trend_query():
     """SQL query to get company ESG score trends"""
     return """
-    SELECT 
+    SELECT
         analysis_date,
         environmental_score,
         social_score,
@@ -337,7 +340,7 @@ def get_company_trend_query():
 def get_top_performers_query():
     """SQL query to get top ESG performers by industry"""
     return """
-    SELECT 
+    SELECT
         a.company_name,
         a.industry_sector,
         a.overall_score,

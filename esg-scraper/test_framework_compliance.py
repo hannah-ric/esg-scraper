@@ -4,13 +4,11 @@ Test suite for ESG Framework Compliance features
 Tests CSRD, GRI, SASB, and TCFD compliance checking
 """
 
+from esg_frameworks import Framework, DisclosureRequirement
+from fastapi.testclient import TestClient
+from lean_esg_platform import app, create_token, EnhancedESGEngine, ESGFrameworkManager
 import os
-import sys
-import json
 import pytest
-import asyncio
-from datetime import datetime
-from typing import Dict, Any
 
 # Set test environment
 os.environ["JWT_SECRET"] = "test-secret-key"
@@ -18,30 +16,27 @@ os.environ["REDIS_URL"] = "redis://localhost:6379"
 os.environ["DATABASE_PATH"] = "test_esg_frameworks.db"
 
 # Import after setting environment
-from lean_esg_platform import app, create_token, EnhancedESGEngine, ESGFrameworkManager
-from fastapi.testclient import TestClient
-from esg_frameworks import Framework, DisclosureRequirement
 
 # Create test client
 client = TestClient(app)
 
 # Test data
 TEST_SUSTAINABILITY_REPORT = """
-Our company is committed to achieving net zero emissions by 2050. In 2023, our Scope 1 emissions 
-were 50,000 metric tons CO2e, Scope 2 emissions were 30,000 metric tons CO2e, and Scope 3 emissions 
-totaled 200,000 metric tons CO2e. We have implemented a comprehensive climate transition plan aligned 
+Our company is committed to achieving net zero emissions by 2050. In 2023, our Scope 1 emissions
+were 50,000 metric tons CO2e, Scope 2 emissions were 30,000 metric tons CO2e, and Scope 3 emissions
+totaled 200,000 metric tons CO2e. We have implemented a comprehensive climate transition plan aligned
 with the Paris Agreement.
 
-Our board of directors has established a Climate Committee to oversee climate-related risks and 
-opportunities. The committee meets quarterly and reports directly to the full board. Management has 
+Our board of directors has established a Climate Committee to oversee climate-related risks and
+opportunities. The committee meets quarterly and reports directly to the full board. Management has
 integrated climate risk assessment into our enterprise risk management framework.
 
-We conducted scenario analysis using both 2°C and 1.5°C scenarios to assess physical and transition 
-risks. Our water consumption was 2.5 million cubic meters, with 80% recycled. We have zero tolerance 
+We conducted scenario analysis using both 2°C and 1.5°C scenarios to assess physical and transition
+risks. Our water consumption was 2.5 million cubic meters, with 80% recycled. We have zero tolerance
 for child labor in our supply chain and conduct regular supplier audits.
 
-Employee safety is paramount - our LTIFR was 0.5 in 2023. We achieved 40% gender diversity in 
-management positions and provide comprehensive training programs averaging 40 hours per employee 
+Employee safety is paramount - our LTIFR was 0.5 in 2023. We achieved 40% gender diversity in
+management positions and provide comprehensive training programs averaging 40 hours per employee
 annually. Our code of conduct includes strong anti-corruption policies and whistleblower protections.
 """
 
@@ -73,20 +68,14 @@ class TestFrameworkCompliance:
         """Test keyword-based requirement detection"""
         manager = ESGFrameworkManager()
 
-        test_text = (
-            "Our company has net zero targets and scope 1 emissions of 50,000 tCO2e"
-        )
+        test_text = "Our company has net zero targets and scope 1 emissions of 50,000 tCO2e"
         found_reqs = manager.find_relevant_requirements(test_text)
 
         # Should find CSRD climate requirements
         assert Framework.CSRD in found_reqs
         csrd_found = found_reqs[Framework.CSRD]
-        assert any(
-            req.requirement_id == "CSRD-E1-1" for req in csrd_found
-        )  # GHG emissions
-        assert any(
-            req.requirement_id == "CSRD-E1-2" for req in csrd_found
-        )  # Climate transition
+        assert any(req.requirement_id == "CSRD-E1-1" for req in csrd_found)  # GHG emissions
+        assert any(req.requirement_id == "CSRD-E1-2" for req in csrd_found)  # Climate transition
 
     def test_metric_extraction(self):
         """Test quantitative metric extraction"""
@@ -281,14 +270,12 @@ class TestFrameworkCompliance:
             }
         }
 
-        findings = engine._get_requirement_findings(
-            framework_results, TEST_SUSTAINABILITY_REPORT
-        )
+        findings = engine._get_requirement_findings(framework_results, TEST_SUSTAINABILITY_REPORT)
 
         assert len(findings) > 0
         finding = findings[0]
         assert finding["requirement_id"] == "CSRD-E1-1"
-        assert finding["found"] == True
+        assert finding["found"]
         assert len(finding["keywords_matched"]) > 0
         assert finding["confidence"] > 0.5
 
@@ -342,9 +329,7 @@ class TestDatabaseIntegration:
         }
 
         # Save to database
-        await db_manager.save_analysis(
-            "test_user", "test_source", test_result, "Technology", "2023"
-        )
+        await db_manager.save_analysis("test_user", "test_source", test_result, "Technology", "2023")
 
         # Verify saved correctly
         analyses = await db_manager.get_user_analyses("test_user", 1)
