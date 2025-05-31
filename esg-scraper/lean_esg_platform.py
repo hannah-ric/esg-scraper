@@ -15,7 +15,7 @@ import redis
 import httpx
 from bs4 import BeautifulSoup
 import yake
-from transformers import pipeline
+# from transformers import pipeline  # Disabled for memory constraints
 import sqlite3
 import stripe
 import numpy as np
@@ -71,10 +71,12 @@ security = HTTPBearer()
 redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 stripe.api_key = STRIPE_KEY
 
-# Load ML model once
-sentiment_analyzer = pipeline(
-    "sentiment-analysis", model="ProsusAI/finbert", device=-1
-)  # CPU for cost efficiency
+# Load ML model once (disabled for memory constraints)
+# Uncomment when using larger instance size (basic-s or higher)
+# sentiment_analyzer = pipeline(
+#     "sentiment-analysis", model="ProsusAI/finbert", device=-1
+# )  # CPU for cost efficiency
+sentiment_analyzer = None  # Disabled for basic-xxs instance
 
 # --- METRICS ---
 # Prometheus metrics
@@ -329,8 +331,25 @@ class LeanESGEngine:
 
     async def _full_analysis(self, content: str) -> Dict[str, Any]:
         """Comprehensive ML-based analysis"""
-        # Sentiment analysis
-        sentiments = sentiment_analyzer(content[:512])  # Limit for performance
+        # Sentiment analysis (if available)
+        sentiments = None
+        if sentiment_analyzer is not None:
+            sentiments = sentiment_analyzer(content[:512])  # Limit for performance
+        else:
+            # Fallback sentiment based on keywords
+            positive_keywords = ["excellent", "strong", "leading", "innovative", "sustainable"]
+            negative_keywords = ["poor", "weak", "lacking", "insufficient", "failed"]
+            
+            content_lower = content.lower()
+            positive_count = sum(1 for kw in positive_keywords if kw in content_lower)
+            negative_count = sum(1 for kw in negative_keywords if kw in content_lower)
+            
+            if positive_count > negative_count:
+                sentiments = [{"label": "POSITIVE", "score": 0.7}]
+            elif negative_count > positive_count:
+                sentiments = [{"label": "NEGATIVE", "score": 0.7}]
+            else:
+                sentiments = [{"label": "NEUTRAL", "score": 0.7}]
 
         # Advanced scoring
         scores = self.keyword_scorer.advanced_score(content, sentiments)
@@ -343,7 +362,7 @@ class LeanESGEngine:
             "insights": insights,
             "sentiment": sentiments[0] if sentiments else None,
             "analysis_type": "full",
-            "confidence": 0.85,
+            "confidence": 0.85 if sentiment_analyzer else 0.75,
             "timestamp": datetime.utcnow().isoformat(),
         }
 

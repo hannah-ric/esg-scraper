@@ -65,7 +65,7 @@ echo "   Port: 8000"
 # Start the FastAPI application with Gunicorn for production
 exec python -m gunicorn lean_esg_platform:app \
     --worker-class uvicorn.workers.UvicornWorker \
-    --workers ${WORKERS:-2} \
+    --workers ${WORKERS:-1} \
     --bind 0.0.0.0:8000 \
     --timeout 300 \
     --keepalive 2 \
