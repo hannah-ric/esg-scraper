@@ -12,7 +12,9 @@ def main():
 
     # Check Python version
     python_version = sys.version_info
-    print(f"Python Version: {python_version.major}.{python_version.minor}.{python_version.micro}")
+    print(
+        f"Python Version: {python_version.major}.{python_version.minor}.{python_version.micro}"
+    )
 
     if python_version < (3, 9):
         print("❌ Python 3.9+ required")

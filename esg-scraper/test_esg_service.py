@@ -102,7 +102,9 @@ def test_url_scraping():
     print_info(f"Testing with URL: {test_url}")
 
     try:
-        response = requests.post(f"{BASE_URL}/api/scrape", json={"url": test_url, "depth": 1}, timeout=30)
+        response = requests.post(
+            f"{BASE_URL}/api/scrape", json={"url": test_url, "depth": 1}, timeout=30
+        )
 
         if response.status_code == 200:
             data = response.json()
@@ -115,7 +117,9 @@ def test_url_scraping():
                     f"S: {result['scores']['social']}%, "
                     f"G: {result['scores']['governance']}%"
                 )
-                print_info(f"Keywords found: {', '.join(result['top_keywords'][:5])}...")
+                print_info(
+                    f"Keywords found: {', '.join(result['top_keywords'][:5])}..."
+                )
                 return True
             else:
                 print_error("No results returned from scraping")
@@ -136,12 +140,16 @@ def test_crawling():
     print_info(f"Testing crawl with URL: {test_url} (depth: 2)")
 
     try:
-        response = requests.post(f"{BASE_URL}/api/scrape", json={"url": test_url, "depth": 2}, timeout=60)
+        response = requests.post(
+            f"{BASE_URL}/api/scrape", json={"url": test_url, "depth": 2}, timeout=60
+        )
 
         if response.status_code == 200:
             data = response.json()
             if "results" in data:
-                print_success(f"Crawling successful - found {len(data['results'])} pages")
+                print_success(
+                    f"Crawling successful - found {len(data['results'])} pages"
+                )
                 for i, result in enumerate(data["results"][:3]):
                     print_info(f"  Page {i + 1}: {result.get('url', 'N/A')}")
                 return True
@@ -176,7 +184,9 @@ def test_database_retrieval():
             data = response.json()
             if "documents" in data:
                 doc_count = len(data["documents"])
-                print_success(f"Database retrieval successful - {doc_count} documents found")
+                print_success(
+                    f"Database retrieval successful - {doc_count} documents found"
+                )
 
                 if doc_count > 0:
                     latest = data["documents"][0]
@@ -187,7 +197,9 @@ def test_database_retrieval():
                 print_error("Invalid response format")
                 return False
         else:
-            print_error(f"Database retrieval failed with status: {response.status_code}")
+            print_error(
+                f"Database retrieval failed with status: {response.status_code}"
+            )
             return False
     except Exception as e:
         print_error(f"Database retrieval error: {str(e)}")
@@ -201,7 +213,9 @@ def test_error_handling():
     # Test invalid URL
     print_info("Testing with invalid URL...")
     try:
-        response = requests.post(f"{BASE_URL}/api/scrape", json={"url": "not-a-valid-url", "depth": 1})
+        response = requests.post(
+            f"{BASE_URL}/api/scrape", json={"url": "not-a-valid-url", "depth": 1}
+        )
         print_success(f"Invalid URL handled properly - status: {response.status_code}")
     except Exception:
         print_error("Invalid URL caused unexpected error")
@@ -307,7 +321,11 @@ def main():
 
     print(f"\n{Colors.BOLD}Results:{Colors.RESET}")
     for test_name, result in results:
-        status = f"{Colors.GREEN}PASSED{Colors.RESET}" if result else f"{Colors.RED}FAILED{Colors.RESET}"
+        status = (
+            f"{Colors.GREEN}PASSED{Colors.RESET}"
+            if result
+            else f"{Colors.RED}FAILED{Colors.RESET}"
+        )
         print(f"  {test_name:<20} {status}")
 
     print(f"\n{Colors.BOLD}Total: {passed}/{total} tests passed{Colors.RESET}")

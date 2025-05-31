@@ -73,12 +73,18 @@ redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 stripe.api_key = STRIPE_KEY
 
 # Load ML model once
-sentiment_analyzer = pipeline("sentiment-analysis", model="ProsusAI/finbert", device=-1)  # CPU for cost efficiency
+sentiment_analyzer = pipeline(
+    "sentiment-analysis", model="ProsusAI/finbert", device=-1
+)  # CPU for cost efficiency
 
 # --- METRICS ---
 # Prometheus metrics
-request_count = Counter("esg_api_requests_total", "Total API requests", ["method", "endpoint", "status"])
-request_duration = Histogram("esg_api_request_duration_seconds", "Request duration", ["method", "endpoint"])
+request_count = Counter(
+    "esg_api_requests_total", "Total API requests", ["method", "endpoint", "status"]
+)
+request_duration = Histogram(
+    "esg_api_request_duration_seconds", "Request duration", ["method", "endpoint"]
+)
 active_users = Gauge("esg_active_users", "Number of active users")
 scraping_errors = Counter("esg_scraping_errors_total", "Total scraping errors")
 analysis_scores = Histogram("esg_analysis_scores", "ESG analysis scores", ["category"])
@@ -124,7 +130,9 @@ class AnalyzeRequest(BaseModel):
         valid_frameworks = ["CSRD", "GRI", "SASB", "TCFD"]
         for framework in v:
             if framework not in valid_frameworks:
-                raise ValueError(f'Invalid framework: {framework}. Must be one of: {", ".join(valid_frameworks)}')
+                raise ValueError(
+                    f'Invalid framework: {framework}. Must be one of: {", ".join(valid_frameworks)}'
+                )
         return v
 
 
@@ -179,7 +187,9 @@ class ExportRequest(BaseModel):
     def validate_format(cls, v):
         valid_formats = ["json", "csv"]
         if v not in valid_formats:
-            raise ValueError(f'Invalid format. Must be one of: {", ".join(valid_formats)}')
+            raise ValueError(
+                f'Invalid format. Must be one of: {", ".join(valid_formats)}'
+            )
         return v
 
 
@@ -271,7 +281,9 @@ class LeanESGEngine:
         self.keyword_scorer = KeywordScorer()
         self.cache_ttl = 86400  # 24 hours
 
-    async def analyze(self, content: str, company_name: str = None, quick_mode: bool = True) -> Dict[str, Any]:
+    async def analyze(
+        self, content: str, company_name: str = None, quick_mode: bool = True
+    ) -> Dict[str, Any]:
         """Fast ESG analysis with caching"""
 
         # Check cache first
@@ -290,7 +302,9 @@ class LeanESGEngine:
         # Add company context if provided
         if company_name:
             result["company"] = company_name
-            result["peers"] = await self._get_peer_comparison(company_name, result["scores"])
+            result["peers"] = await self._get_peer_comparison(
+                company_name, result["scores"]
+            )
 
         # Cache result
         redis_client.setex(cache_key, self.cache_ttl, json.dumps(result))
@@ -342,7 +356,10 @@ class LeanESGEngine:
 
         return {
             "industry_average": industry_avg,
-            "relative_performance": {k: "above" if scores.get(k, 0) > v else "below" for k, v in industry_avg.items()},
+            "relative_performance": {
+                k: "above" if scores.get(k, 0) > v else "below"
+                for k, v in industry_avg.items()
+            },
         }
 
     def _extract_insights(self, content: str, scores: Dict) -> List[str]:
@@ -433,7 +450,9 @@ class KeywordScorer:
                 max_score += 1
 
             # Normalize to 0-100
-            scores[category] = min(100, (score / max_score * 100) if max_score > 0 else 0)
+            scores[category] = min(
+                100, (score / max_score * 100) if max_score > 0 else 0
+            )
 
         # Overall score
         scores["overall"] = np.mean(list(scores.values()))
@@ -485,7 +504,9 @@ class EnhancedESGEngine(LeanESGEngine):
             # Extract metrics if requested
             metrics = []
             if extract_metrics:
-                metrics = self._extract_all_metrics(content, framework_results["requirements"])
+                metrics = self._extract_all_metrics(
+                    content, framework_results["requirements"]
+                )
 
             # Calculate coverage
             coverage = self._calculate_coverage(framework_results)
@@ -497,7 +518,9 @@ class EnhancedESGEngine(LeanESGEngine):
             recommendations = self._generate_recommendations(gaps, coverage)
 
             # Get requirement findings
-            requirement_findings = self._get_requirement_findings(framework_results, content)
+            requirement_findings = self._get_requirement_findings(
+                framework_results, content
+            )
 
             # Enhance base result
             base_result.update(
@@ -512,21 +535,30 @@ class EnhancedESGEngine(LeanESGEngine):
 
         return base_result
 
-    def _analyze_frameworks(self, content: str, framework_names: List[str]) -> Dict[str, Any]:
+    def _analyze_frameworks(
+        self, content: str, framework_names: List[str]
+    ) -> Dict[str, Any]:
         """Analyze content against specified frameworks"""
-        frameworks = [Framework[name] for name in framework_names if name in Framework.__members__]
+        frameworks = [
+            Framework[name] for name in framework_names if name in Framework.__members__
+        ]
 
         # Find relevant requirements
         found_requirements = self.framework_manager.find_relevant_requirements(content)
 
         # Filter by requested frameworks
         filtered_requirements = {
-            framework: reqs for framework, reqs in found_requirements.items() if framework in frameworks
+            framework: reqs
+            for framework, reqs in found_requirements.items()
+            if framework in frameworks
         }
 
         return {
             "requirements": filtered_requirements,
-            "all_requirements": {framework: self.framework_manager.requirements[framework] for framework in frameworks},
+            "all_requirements": {
+                framework: self.framework_manager.requirements[framework]
+                for framework in frameworks
+            },
         }
 
     def _extract_all_metrics(
@@ -554,7 +586,9 @@ class EnhancedESGEngine(LeanESGEngine):
 
         return all_metrics
 
-    def _calculate_coverage(self, framework_results: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    def _calculate_coverage(
+        self, framework_results: Dict[str, Any]
+    ) -> Dict[str, Dict[str, Any]]:
         """Calculate coverage for each framework"""
         coverage = {}
 
@@ -562,12 +596,26 @@ class EnhancedESGEngine(LeanESGEngine):
             total_reqs = len(framework_results["all_requirements"][framework])
             found_reqs = len(framework_results["requirements"].get(framework, []))
 
-            mandatory_total = len([r for r in framework_results["all_requirements"][framework] if r.mandatory])
-            mandatory_found = len([r for r in framework_results["requirements"].get(framework, []) if r.mandatory])
+            mandatory_total = len(
+                [
+                    r
+                    for r in framework_results["all_requirements"][framework]
+                    if r.mandatory
+                ]
+            )
+            mandatory_found = len(
+                [
+                    r
+                    for r in framework_results["requirements"].get(framework, [])
+                    if r.mandatory
+                ]
+            )
 
             coverage[framework.value] = {
                 "framework": framework.value,
-                "coverage_percentage": ((found_reqs / total_reqs * 100) if total_reqs > 0 else 0),
+                "coverage_percentage": (
+                    (found_reqs / total_reqs * 100) if total_reqs > 0 else 0
+                ),
                 "requirements_found": found_reqs,
                 "requirements_total": total_reqs,
                 "mandatory_met": mandatory_found,
@@ -576,11 +624,15 @@ class EnhancedESGEngine(LeanESGEngine):
 
         return coverage
 
-    def _generate_gaps(self, framework_results: Dict[str, Any], industry_sector: str = None) -> List[Dict[str, Any]]:
+    def _generate_gaps(
+        self, framework_results: Dict[str, Any], industry_sector: str = None
+    ) -> List[Dict[str, Any]]:
         """Generate gap analysis"""
         gaps = []
 
-        gap_analysis = self.framework_manager.generate_gap_analysis(framework_results["requirements"])
+        gap_analysis = self.framework_manager.generate_gap_analysis(
+            framework_results["requirements"]
+        )
 
         for framework, missing_reqs in gap_analysis.items():
             for req in missing_reqs:
@@ -613,19 +665,28 @@ class EnhancedESGEngine(LeanESGEngine):
         # Industry-specific logic
         if industry:
             industry_lower = industry.lower()
-            if industry_lower in ["energy", "utilities", "oil & gas"] and "emission" in requirement.description.lower():
+            if (
+                industry_lower in ["energy", "utilities", "oil & gas"]
+                and "emission" in requirement.description.lower()
+            ):
                 return "critical"
-            elif industry_lower in ["technology", "finance"] and "data" in requirement.description.lower():
+            elif (
+                industry_lower in ["technology", "finance"]
+                and "data" in requirement.description.lower()
+            ):
                 return "high"
             elif (
-                industry_lower in ["manufacturing", "automotive"] and "supply chain" in requirement.description.lower()
+                industry_lower in ["manufacturing", "automotive"]
+                and "supply chain" in requirement.description.lower()
             ):
                 return "high"
 
         # Default based on mandatory status
         return "high" if requirement.mandatory else "medium"
 
-    def _generate_recommendations(self, gaps: List[Dict[str, Any]], coverage: Dict[str, Dict[str, Any]]) -> List[str]:
+    def _generate_recommendations(
+        self, gaps: List[Dict[str, Any]], coverage: Dict[str, Dict[str, Any]]
+    ) -> List[str]:
         """Generate actionable recommendations"""
         recommendations = []
 
@@ -650,7 +711,9 @@ class EnhancedESGEngine(LeanESGEngine):
         high_gaps = [g for g in gaps if g["severity"] == "high"]
         if high_gaps:
             categories = set(g["category"] for g in high_gaps[:3])  # Top 3 categories
-            recommendations.append(f"Priority areas for improvement: {', '.join(categories)}")
+            recommendations.append(
+                f"Priority areas for improvement: {', '.join(categories)}"
+            )
 
         # Positive recommendations
         for framework_name, cov in coverage.items():
@@ -662,7 +725,9 @@ class EnhancedESGEngine(LeanESGEngine):
 
         return recommendations[:10]  # Limit recommendations
 
-    def _get_requirement_findings(self, framework_results: Dict[str, Any], content: str) -> List[Dict[str, Any]]:
+    def _get_requirement_findings(
+        self, framework_results: Dict[str, Any], content: str
+    ) -> List[Dict[str, Any]]:
         """Get detailed findings for each requirement"""
         findings = []
         content_lower = content.lower()
@@ -670,7 +735,9 @@ class EnhancedESGEngine(LeanESGEngine):
         for framework, requirements in framework_results["requirements"].items():
             for req in requirements:
                 # Find which keywords were matched
-                matched_keywords = [kw for kw in req.keywords if kw.lower() in content_lower]
+                matched_keywords = [
+                    kw for kw in req.keywords if kw.lower() in content_lower
+                ]
 
                 findings.append(
                     {
@@ -680,7 +747,9 @@ class EnhancedESGEngine(LeanESGEngine):
                         "subcategory": req.subcategory,
                         "description": req.description,
                         "found": True,
-                        "confidence": min(0.9, 0.3 + (0.1 * len(matched_keywords))),  # Simple confidence calculation
+                        "confidence": min(
+                            0.9, 0.3 + (0.1 * len(matched_keywords))
+                        ),  # Simple confidence calculation
                         "keywords_matched": matched_keywords,
                     }
                 )
@@ -834,7 +903,9 @@ class LeanScraper:
 
             # Try to find main content areas first
             main_content = (
-                soup.find("main") or soup.find("article") or soup.find("div", {"class": ["content", "main", "article"]})
+                soup.find("main")
+                or soup.find("article")
+                or soup.find("div", {"class": ["content", "main", "article"]})
             )
 
             if main_content:
@@ -869,12 +940,18 @@ class LeanScraper:
                 if self.has_trafilatura:
                     try:
                         content = self.trafilatura.extract(html_content)
-                        if content and len(content.strip()) > 100:  # Ensure we got meaningful content
+                        if (
+                            content and len(content.strip()) > 100
+                        ):  # Ensure we got meaningful content
                             return content[:50000]  # Limit content size
                         else:
-                            logger.warning("Trafilatura extracted insufficient content, using fallback")
+                            logger.warning(
+                                "Trafilatura extracted insufficient content, using fallback"
+                            )
                     except Exception as e:
-                        logger.warning(f"Trafilatura extraction failed: {e}, using fallback")
+                        logger.warning(
+                            f"Trafilatura extraction failed: {e}, using fallback"
+                        )
 
                 # Fallback to BeautifulSoup
                 content = self._fallback_scrape(html_content)
@@ -1025,21 +1102,31 @@ async def analyze_endpoint(
     result["credits_remaining"] = await usage_tracker.get_user_limit(user_id) - usage
 
     # Save to enhanced database
-    await db_manager.save_analysis(user_id, source, result, request.industry_sector, request.reporting_period)
+    await db_manager.save_analysis(
+        user_id, source, result, request.industry_sector, request.reporting_period
+    )
 
     # Log for analytics (async)
-    background_tasks.add_task(log_analytics, user_id, operation, result["scores"]["overall"])
+    background_tasks.add_task(
+        log_analytics, user_id, operation, result["scores"]["overall"]
+    )
 
     # Update metrics
-    analysis_scores.labels(category="environmental").observe(result["scores"]["environmental"])
+    analysis_scores.labels(category="environmental").observe(
+        result["scores"]["environmental"]
+    )
     analysis_scores.labels(category="social").observe(result["scores"]["social"])
-    analysis_scores.labels(category="governance").observe(result["scores"]["governance"])
+    analysis_scores.labels(category="governance").observe(
+        result["scores"]["governance"]
+    )
 
     return result
 
 
 @app.post("/compare")
-async def compare_companies(request: CompareRequest, user_id: str = Depends(verify_token)):
+async def compare_companies(
+    request: CompareRequest, user_id: str = Depends(verify_token)
+):
     """Compare multiple companies"""
     # Track usage
     await usage_tracker.track_usage(user_id, "analyze_quick", len(request.companies))
@@ -1114,7 +1201,9 @@ async def get_usage(user_id: str = Depends(verify_token)):
         "current_usage": current_usage,
         "limit": limit,
         "percentage": round((current_usage / limit * 100), 1) if limit > 0 else 0,
-        "reset_date": (datetime.utcnow().replace(day=1) + timedelta(days=31)).strftime("%Y-%m-%d"),
+        "reset_date": (datetime.utcnow().replace(day=1) + timedelta(days=31)).strftime(
+            "%Y-%m-%d"
+        ),
     }
 
 
@@ -1193,12 +1282,16 @@ async def get_frameworks():
 
 
 @app.get("/company/{company_name}/history")
-async def get_company_esg_history(company_name: str, days: int = 90, user_id: str = Depends(verify_token)):
+async def get_company_esg_history(
+    company_name: str, days: int = 90, user_id: str = Depends(verify_token)
+):
     """Get historical ESG scores and framework compliance for a company"""
     history = await db_manager.get_company_history(company_name, days)
 
     if not history:
-        raise HTTPException(status_code=404, detail="No historical data found for this company")
+        raise HTTPException(
+            status_code=404, detail="No historical data found for this company"
+        )
 
     # Process framework coverage from JSON
     for record in history:
@@ -1219,7 +1312,9 @@ async def get_analysis_gaps(analysis_id: int, user_id: str = Depends(verify_toke
     gaps = await db_manager.get_framework_gaps(analysis_id)
 
     if not gaps:
-        raise HTTPException(status_code=404, detail="No gap analysis found for this analysis")
+        raise HTTPException(
+            status_code=404, detail="No gap analysis found for this analysis"
+        )
 
     # Group by framework and severity
     grouped_gaps = {}
@@ -1279,7 +1374,9 @@ async def benchmark_companies(
 
     # Calculate averages
     avg_scores = {
-        "environmental": np.mean([r["scores"]["environmental"] for r in results.values()]),
+        "environmental": np.mean(
+            [r["scores"]["environmental"] for r in results.values()]
+        ),
         "social": np.mean([r["scores"]["social"] for r in results.values()]),
         "governance": np.mean([r["scores"]["governance"] for r in results.values()]),
         "overall": np.mean([r["scores"]["overall"] for r in results.values()]),
@@ -1288,7 +1385,9 @@ async def benchmark_companies(
     return {
         "companies": results,
         "average_scores": avg_scores,
-        "best_performer": max(results.items(), key=lambda x: x[1]["scores"]["overall"])[0],
+        "best_performer": max(results.items(), key=lambda x: x[1]["scores"]["overall"])[
+            0
+        ],
         "frameworks_analyzed": frameworks,
     }
 
@@ -1352,7 +1451,9 @@ async def check_rate_limit(user_id: str, operation: str = "default"):
     """Check rate limit for user"""
     key = f"{user_id}:{operation}"
     if not rate_limiter.is_allowed(key):
-        raise HTTPException(status_code=429, detail="Rate limit exceeded. Please try again later.")
+        raise HTTPException(
+            status_code=429, detail="Rate limit exceeded. Please try again later."
+        )
 
 
 # --- DATABASE ---
@@ -1385,7 +1486,9 @@ class DatabaseManager:
             """
             )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_user_id ON analyses(user_id)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_company_name ON analyses(company_name)")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_company_name ON analyses(company_name)"
+            )
 
 
 class EnhancedDatabaseManager(DatabaseManager):
@@ -1627,9 +1730,13 @@ async def add_metrics(request, call_next):
 
     # Record metrics
     duration = time.time() - start_time
-    request_count.labels(method=request.method, endpoint=request.url.path, status=response.status_code).inc()
+    request_count.labels(
+        method=request.method, endpoint=request.url.path, status=response.status_code
+    ).inc()
 
-    request_duration.labels(method=request.method, endpoint=request.url.path).observe(duration)
+    request_duration.labels(method=request.method, endpoint=request.url.path).observe(
+        duration
+    )
 
     return response
 

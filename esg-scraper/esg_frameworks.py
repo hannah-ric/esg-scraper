@@ -882,20 +882,30 @@ class ESGFrameworkManager:
         """Build regex patterns for metrics extraction"""
         extractors = {
             "percentage": re.compile(r"(\d+\.?\d*)\s*%", re.IGNORECASE),
-            "emissions": re.compile(r"(\d+\.?\d*)\s*(t|tonnes|tons).*co2", re.IGNORECASE),
+            "emissions": re.compile(
+                r"(\d+\.?\d*)\s*(t|tonnes|tons).*co2", re.IGNORECASE
+            ),
             "energy": re.compile(r"(\d+\.?\d*)\s*(kwh|mwh|gwh|tj|pj)", re.IGNORECASE),
-            "water": re.compile(r"(\d+\.?\d*)\s*(m3|liters|litres|megalit)", re.IGNORECASE),
-            "waste": re.compile(r"(\d+\.?\d*)\s*(kg|tonnes|tons).*waste", re.IGNORECASE),
+            "water": re.compile(
+                r"(\d+\.?\d*)\s*(m3|liters|litres|megalit)", re.IGNORECASE
+            ),
+            "waste": re.compile(
+                r"(\d+\.?\d*)\s*(kg|tonnes|tons).*waste", re.IGNORECASE
+            ),
             "currency": re.compile(
                 r"(\d+\.?\d*)\s*(million|billion|trillion).*(\$|USD|EUR|GBP)",
                 re.IGNORECASE,
             ),
-            "employees": re.compile(r"(\d+\.?\d*)\s*(employees|workers|staff|people)", re.IGNORECASE),
+            "employees": re.compile(
+                r"(\d+\.?\d*)\s*(employees|workers|staff|people)", re.IGNORECASE
+            ),
         }
 
         return extractors
 
-    def find_relevant_requirements(self, content: str) -> Dict[Framework, List[DisclosureRequirement]]:
+    def find_relevant_requirements(
+        self, content: str
+    ) -> Dict[Framework, List[DisclosureRequirement]]:
         """Find requirements that match content based on keywords"""
         content_lower = content.lower()
         relevant_reqs = defaultdict(list)
@@ -948,7 +958,9 @@ class ESGFrameworkManager:
                                     value = match
                                     unit = ""
 
-                                metrics[req.requirement_id][req.category].append(f"{value} {unit}".strip())
+                                metrics[req.requirement_id][req.category].append(
+                                    f"{value} {unit}".strip()
+                                )
                         except re.error:
                             continue  # Skip invalid regex patterns
 
@@ -965,7 +977,9 @@ class ESGFrameworkManager:
             found_reqs = found_requirements.get(framework, [])
             found_ids = {req.requirement_id for req in found_reqs}
 
-            missing_reqs = [req for req in all_reqs if req.requirement_id not in found_ids]
+            missing_reqs = [
+                req for req in all_reqs if req.requirement_id not in found_ids
+            ]
             gaps[framework] = missing_reqs
 
         return gaps
@@ -980,7 +994,9 @@ class ESGFrameworkManager:
             total_reqs = len(self.requirements[framework])
             found_reqs = len(found_requirements.get(framework, []))
 
-            coverage[framework] = (found_reqs / total_reqs * 100) if total_reqs > 0 else 0
+            coverage[framework] = (
+                (found_reqs / total_reqs * 100) if total_reqs > 0 else 0
+            )
 
         return coverage
 
@@ -1010,12 +1026,16 @@ def get_framework_manager() -> ESGFrameworkManager:
     return ESGFrameworkManager()
 
 
-def analyze_text_against_frameworks(content: str, frameworks: List[str] = None) -> Dict[str, Any]:
+def analyze_text_against_frameworks(
+    content: str, frameworks: List[str] = None
+) -> Dict[str, Any]:
     """Quick analysis of text content against specified frameworks"""
     manager = ESGFrameworkManager()
 
     if frameworks:
-        framework_enums = [Framework[name] for name in frameworks if name in Framework.__members__]
+        framework_enums = [
+            Framework[name] for name in frameworks if name in Framework.__members__
+        ]
     else:
         framework_enums = list(Framework)
 
@@ -1024,7 +1044,9 @@ def analyze_text_against_frameworks(content: str, frameworks: List[str] = None) 
 
     # Filter by requested frameworks
     filtered_requirements = {
-        framework: reqs for framework, reqs in found_requirements.items() if framework in framework_enums
+        framework: reqs
+        for framework, reqs in found_requirements.items()
+        if framework in framework_enums
     }
 
     # Calculate coverage

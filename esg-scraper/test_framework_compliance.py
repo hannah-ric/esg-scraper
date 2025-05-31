@@ -68,14 +68,20 @@ class TestFrameworkCompliance:
         """Test keyword-based requirement detection"""
         manager = ESGFrameworkManager()
 
-        test_text = "Our company has net zero targets and scope 1 emissions of 50,000 tCO2e"
+        test_text = (
+            "Our company has net zero targets and scope 1 emissions of 50,000 tCO2e"
+        )
         found_reqs = manager.find_relevant_requirements(test_text)
 
         # Should find CSRD climate requirements
         assert Framework.CSRD in found_reqs
         csrd_found = found_reqs[Framework.CSRD]
-        assert any(req.requirement_id == "CSRD-E1-1" for req in csrd_found)  # GHG emissions
-        assert any(req.requirement_id == "CSRD-E1-2" for req in csrd_found)  # Climate transition
+        assert any(
+            req.requirement_id == "CSRD-E1-1" for req in csrd_found
+        )  # GHG emissions
+        assert any(
+            req.requirement_id == "CSRD-E1-2" for req in csrd_found
+        )  # Climate transition
 
     def test_metric_extraction(self):
         """Test quantitative metric extraction"""
@@ -270,7 +276,9 @@ class TestFrameworkCompliance:
             }
         }
 
-        findings = engine._get_requirement_findings(framework_results, TEST_SUSTAINABILITY_REPORT)
+        findings = engine._get_requirement_findings(
+            framework_results, TEST_SUSTAINABILITY_REPORT
+        )
 
         assert len(findings) > 0
         finding = findings[0]
@@ -329,7 +337,9 @@ class TestDatabaseIntegration:
         }
 
         # Save to database
-        await db_manager.save_analysis("test_user", "test_source", test_result, "Technology", "2023")
+        await db_manager.save_analysis(
+            "test_user", "test_source", test_result, "Technology", "2023"
+        )
 
         # Verify saved correctly
         analyses = await db_manager.get_user_analyses("test_user", 1)
