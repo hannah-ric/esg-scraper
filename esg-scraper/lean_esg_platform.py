@@ -1,7 +1,6 @@
 # import database_schema  # Removed - using MongoDB
-from esg_frameworks import ESGFrameworkManager, Framework, DisclosureRequirement
 import os
-from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse, Response
 import uvicorn
@@ -15,7 +14,6 @@ import redis
 import httpx
 from bs4 import BeautifulSoup
 import yake
-
 # from transformers import pipeline  # Disabled for memory constraints
 import stripe
 import numpy as np
@@ -32,8 +30,13 @@ import ssl
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
 from fastapi.responses import JSONResponse
+
+# Import ESG framework modules
+from esg_frameworks import ESGFrameworkManager, Framework, DisclosureRequirement
+
+# MongoDB manager
+from mongodb_manager import get_mongodb_manager
 
 # Optional import for trafilatura
 try:
@@ -48,12 +51,6 @@ except ImportError:
 from dotenv import load_dotenv
 
 load_dotenv()
-
-# Import ESG framework modules
-from esg_frameworks import ESGFrameworkManager, Framework, DisclosureRequirement
-
-# MongoDB manager
-from mongodb_manager import get_mongodb_manager
 
 # Configure structured logging
 logging.basicConfig(
@@ -193,7 +190,7 @@ def get_user_tier_from_request(request: Request) -> str:
 
             # Default to free tier if not cached
             return "free"
-    except:
+    except Exception:
         pass
 
     return "anonymous"
@@ -1261,7 +1258,7 @@ async def analyze_endpoint(
     - Growth: 500/hour
     - Enterprise: 2000/hour
     """
-    request_start = time.time()
+    # request_start = time.time()  # Removed - unused variable
 
     # Check and apply tier-specific rate limit
     try:
@@ -1996,7 +1993,8 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = (
-        "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+        "accelerometer=(), camera=(), geolocation=(), gyroscope=(), "
+        "magnetometer=(), microphone=(), payment=(), usb=()"
     )
 
     # Only add HSTS in production
@@ -2007,7 +2005,9 @@ async def add_security_headers(request: Request, call_next):
 
     # Content Security Policy (adjust as needed)
     response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://api.blueprintbuddy.io"
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; "
+        "font-src 'self'; connect-src 'self' https://api.blueprintbuddy.io"
     )
 
     return response

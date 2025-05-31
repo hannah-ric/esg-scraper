@@ -14,10 +14,9 @@ import os
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
-from urllib.parse import quote_plus
 
 import motor.motor_asyncio
-from pymongo import MongoClient, ASCENDING, DESCENDING, IndexModel
+from pymongo import ASCENDING, DESCENDING, IndexModel
 from pymongo.errors import ConnectionFailure, OperationFailure, DuplicateKeyError
 import asyncio
 from functools import wraps

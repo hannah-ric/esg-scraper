@@ -12,8 +12,7 @@ Implements API versioning with:
 from fastapi import FastAPI, Request, HTTPException, Header
 from fastapi.responses import JSONResponse
 from typing import Optional, Dict, Callable
-from datetime import datetime, timedelta
-import warnings
+from datetime import datetime
 from functools import wraps
 
 # Version configuration

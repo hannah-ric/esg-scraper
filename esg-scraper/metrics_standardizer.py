@@ -214,7 +214,7 @@ class MetricStandardizer:
                 # Take average of range
                 avg = (float(parts[0]) + float(parts[1])) / 2
                 return avg, 0.8  # Lower confidence for ranges
-            except:
+            except Exception:
                 pass
 
         # Handle approximate values (e.g., "~100", "approximately 100")
@@ -222,13 +222,13 @@ class MetricStandardizer:
             cleaned = cleaned.replace("~", "")
             try:
                 return float(cleaned), 0.9  # Slightly lower confidence
-            except:
+            except Exception:
                 pass
 
         # Standard conversion
         try:
             return float(cleaned), 1.0
-        except:
+        except Exception:
             # Try extracting first number
             numbers = re.findall(r"-?\d+\.?\d*", cleaned)
             if numbers:
