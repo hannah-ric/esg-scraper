@@ -100,10 +100,6 @@ services:
 #     type: ALIAS
 #     minimum_tls_version: "1.2"
 
-# Features
-features:
-  - buildpack-stack: ubuntu-18
-
 # Alerts
 alerts:
   - rule: CPU_UTILIZATION
