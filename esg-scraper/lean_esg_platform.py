@@ -15,6 +15,7 @@ import redis
 import httpx
 from bs4 import BeautifulSoup
 import yake
+
 # from transformers import pipeline  # Disabled for memory constraints
 import stripe
 import numpy as np
@@ -70,6 +71,7 @@ try:
     from sentry_sdk.integrations.fastapi import FastApiIntegration
     from sentry_sdk.integrations.redis import RedisIntegration
     from sentry_sdk.integrations.logging import LoggingIntegration
+
     SENTRY_AVAILABLE = True
 except ImportError:
     SENTRY_AVAILABLE = False
@@ -78,6 +80,7 @@ except ImportError:
 # Import psutil for system monitoring
 try:
     import psutil
+
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
@@ -107,10 +110,7 @@ if SENTRY_AVAILABLE and SENTRY_DSN:
         integrations=[
             FastApiIntegration(transaction_style="endpoint"),
             RedisIntegration(),
-            LoggingIntegration(
-                level=logging.INFO,
-                event_level=logging.ERROR
-            ),
+            LoggingIntegration(level=logging.INFO, event_level=logging.ERROR),
         ],
         traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
         profiles_sample_rate=0.1,  # 10% profiling
@@ -127,6 +127,7 @@ security = HTTPBearer()
 # Add rate limiter to app
 # (limiter will be initialized after configuration)
 
+
 # Custom rate limit error handler with tier information
 @app.exception_handler(RateLimitExceeded)
 async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
@@ -136,37 +137,41 @@ async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
             "error": "Rate limit exceeded",
             "message": str(exc.detail),
             "retry_after": exc.headers.get("Retry-After", "60"),
-            "upgrade_url": "https://blueprintbuddy.io/pricing"
-        }
+            "upgrade_url": "https://blueprintbuddy.io/pricing",
+        },
     )
     response.headers["Retry-After"] = exc.headers.get("Retry-After", "60")
     response.headers["X-RateLimit-Limit"] = exc.headers.get("X-RateLimit-Limit", "")
-    response.headers["X-RateLimit-Remaining"] = exc.headers.get("X-RateLimit-Remaining", "0")
+    response.headers["X-RateLimit-Remaining"] = exc.headers.get(
+        "X-RateLimit-Remaining", "0"
+    )
     response.headers["X-RateLimit-Reset"] = exc.headers.get("X-RateLimit-Reset", "")
     return response
 
+
 # Initialize Redis with SSL support for managed Redis
-if REDIS_URL.startswith('rediss://'):
+if REDIS_URL.startswith("rediss://"):
     # Managed Redis with SSL
     # Check if it's Upstash (they use self-signed certs)
-    if 'upstash.io' in REDIS_URL:
+    if "upstash.io" in REDIS_URL:
         redis_client = redis.from_url(
             REDIS_URL,
             decode_responses=True,
-            ssl_cert_reqs=ssl.CERT_NONE  # Upstash uses self-signed certs
+            ssl_cert_reqs=ssl.CERT_NONE,  # Upstash uses self-signed certs
         )
     else:
         redis_client = redis.from_url(
             REDIS_URL,
             decode_responses=True,
             ssl_cert_reqs=ssl.CERT_REQUIRED,
-            ssl_ca_certs=ssl.get_default_verify_paths().cafile
+            ssl_ca_certs=ssl.get_default_verify_paths().cafile,
         )
 else:
     # Local Redis without SSL
     redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 
 stripe.api_key = STRIPE_KEY
+
 
 # Initialize rate limiter with Redis backend
 def get_user_tier_from_request(request: Request) -> str:
@@ -178,27 +183,28 @@ def get_user_tier_from_request(request: Request) -> str:
             token = auth.split(" ")[1]
             payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
             user_id = payload.get("user_id")
-            
+
             # In production, this would be async, but for rate limiting we need sync
             # For now, return a default - in production, cache user tiers in Redis
             tier_cache_key = f"user_tier:{user_id}"
             cached_tier = redis_client.get(tier_cache_key)
             if cached_tier:
                 return cached_tier
-            
+
             # Default to free tier if not cached
             return "free"
     except:
         pass
-    
+
     return "anonymous"
+
 
 # Configure rate limiter
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["100 per hour"],  # Default for anonymous users
     storage_uri=REDIS_URL,
-    strategy="fixed-window-elastic-expiry"
+    strategy="fixed-window-elastic-expiry",
 )
 
 # Define tier-specific rate limits
@@ -208,22 +214,22 @@ RATE_LIMITS = {
         "free": "20 per hour",
         "starter": "100 per hour",
         "growth": "500 per hour",
-        "enterprise": "2000 per hour"
+        "enterprise": "2000 per hour",
     },
     "export": {
         "anonymous": "1 per day",
         "free": "5 per day",
         "starter": "20 per day",
         "growth": "100 per day",
-        "enterprise": "1000 per day"
+        "enterprise": "1000 per day",
     },
     "compare": {
         "anonymous": "5 per hour",
         "free": "10 per hour",
         "starter": "50 per hour",
         "growth": "200 per hour",
-        "enterprise": "1000 per hour"
-    }
+        "enterprise": "1000 per hour",
+    },
 }
 
 # Register rate limiter with app
@@ -496,13 +502,19 @@ class LeanESGEngine:
             sentiments = sentiment_analyzer(content[:512])  # Limit for performance
         else:
             # Fallback sentiment based on keywords
-            positive_keywords = ["excellent", "strong", "leading", "innovative", "sustainable"]
+            positive_keywords = [
+                "excellent",
+                "strong",
+                "leading",
+                "innovative",
+                "sustainable",
+            ]
             negative_keywords = ["poor", "weak", "lacking", "insufficient", "failed"]
-            
+
             content_lower = content.lower()
             positive_count = sum(1 for kw in positive_keywords if kw in content_lower)
             negative_count = sum(1 for kw in negative_keywords if kw in content_lower)
-            
+
             if positive_count > negative_count:
                 sentiments = [{"label": "POSITIVE", "score": 0.7}]
             elif negative_count > positive_count:
@@ -761,9 +773,11 @@ class EnhancedESGEngine(LeanESGEngine):
                                 "framework": framework.value,
                             }
                         )
-        
+
         # Standardize metrics before returning
-        standardized_metrics = self.metrics_standardizer.standardize_metrics(all_metrics)
+        standardized_metrics = self.metrics_standardizer.standardize_metrics(
+            all_metrics
+        )
         return standardized_metrics
 
     def _calculate_coverage(
@@ -1176,17 +1190,17 @@ class UsageTracker:
         """Get user's credit limit based on subscription"""
         # Get user from MongoDB
         user = await db_manager.get_user(user_id)
-        
+
         if not user:
             return FREE_TIER_CREDITS
-        
+
         tier_limits = {
             "free": 100,
             "starter": 1000,
             "growth": 5000,
             "enterprise": 50000,
         }
-        
+
         return tier_limits.get(user.get("tier", "free"), FREE_TIER_CREDITS)
 
 
@@ -1220,15 +1234,11 @@ async def register(registration: UserRegistration):
     try:
         # Create user in MongoDB
         user = await db_manager.create_user(registration.email, "free")
-        
+
         # Generate token
         token = create_token(user_id)
-        
-        return {
-            "token": token, 
-            "tier": user["tier"], 
-            "credits": user["credits"]
-        }
+
+        return {"token": token, "tier": user["tier"], "credits": user["credits"]}
     except Exception as e:
         logger.error(f"Registration error: {e}")
         raise HTTPException(status_code=500, detail="Registration failed")
@@ -1243,25 +1253,25 @@ async def analyze_endpoint(
 ):
     """
     Analyze ESG performance from URL or text with framework compliance
-    
+
     Rate limits by tier:
     - Anonymous: 5/hour
-    - Free: 20/hour  
+    - Free: 20/hour
     - Starter: 100/hour
     - Growth: 500/hour
     - Enterprise: 2000/hour
     """
     request_start = time.time()
-    
+
     # Check and apply tier-specific rate limit
     try:
         # Get user tier from database
         user = await db_manager.get_user(user_id)
         tier = user.get("tier", "free") if user else "free"
-        
+
         # Cache tier in Redis for future rate limiting
         redis_client.setex(f"user_tier:{user_id}", 3600, tier)
-        
+
         # Apply tier-specific limit
         tier_limit = RATE_LIMITS["analyze"].get(tier, "20 per hour")
         await limiter.limit(tier_limit)(analyze_endpoint)
@@ -1269,7 +1279,7 @@ async def analyze_endpoint(
         raise
     except Exception as e:
         logger.warning(f"Could not apply tier-specific rate limit: {e}")
-    
+
     request_count.labels(method="POST", endpoint="/analyze", status="pending").inc()
 
     # Track usage
@@ -1288,16 +1298,21 @@ async def analyze_endpoint(
         if SENTRY_AVAILABLE:
             with sentry_sdk.push_scope() as scope:
                 scope.set_tag("error.type", "scraping")
-                scope.set_context("request", {
-                    "url": str(request.url) if request.url else None,
-                    "company": request.company_name,
-                    "user_id": user_id
-                })
+                scope.set_context(
+                    "request",
+                    {
+                        "url": str(request.url) if request.url else None,
+                        "company": request.company_name,
+                        "user_id": user_id,
+                    },
+                )
                 sentry_sdk.capture_exception(e)
-        
+
         logger.error(f"Scraping error for user {user_id}: {e}")
         scraping_errors.inc()
-        raise HTTPException(status_code=400, detail=f"Failed to fetch content: {str(e)}")
+        raise HTTPException(
+            status_code=400, detail=f"Failed to fetch content: {str(e)}"
+        )
 
     # Enhanced analysis with frameworks
     try:
@@ -1314,22 +1329,27 @@ async def analyze_endpoint(
         if SENTRY_AVAILABLE:
             with sentry_sdk.push_scope() as scope:
                 scope.set_tag("error.type", "analysis")
-                scope.set_context("analysis_params", {
-                    "company": request.company_name,
-                    "quick_mode": request.quick_mode,
-                    "frameworks": request.frameworks,
-                    "user_id": user_id,
-                    "content_length": len(content) if content else 0
-                })
+                scope.set_context(
+                    "analysis_params",
+                    {
+                        "company": request.company_name,
+                        "quick_mode": request.quick_mode,
+                        "frameworks": request.frameworks,
+                        "user_id": user_id,
+                        "content_length": len(content) if content else 0,
+                    },
+                )
                 sentry_sdk.capture_exception(e)
-        
+
         logger.error(f"Analysis error for user {user_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
     # Add metadata
     result["source"] = source
     result["credits_used"] = usage_tracker.costs["analyze"]
-    result["credits_remaining"] = await usage_tracker.get_user_limit(user_id) - usage_tracker.costs["analyze"]
+    result["credits_remaining"] = (
+        await usage_tracker.get_user_limit(user_id) - usage_tracker.costs["analyze"]
+    )
 
     # Save to enhanced database
     await db_manager.save_analysis(
@@ -1360,7 +1380,7 @@ async def compare_companies(
 ):
     """
     Compare multiple companies
-    
+
     Rate limits by tier:
     - Anonymous: 5/hour
     - Free: 10/hour
@@ -1384,25 +1404,31 @@ async def compare_companies(
             analyses = await db_manager.get_user_analyses(
                 user_id, limit=1, company_name=company
             )
-            
+
             if analyses:
                 latest = analyses[0]
                 results[company] = {
                     "scores": {
-                        "environmental": latest.get("scores", {}).get("environmental", 0),
+                        "environmental": latest.get("scores", {}).get(
+                            "environmental", 0
+                        ),
                         "social": latest.get("scores", {}).get("social", 0),
                         "governance": latest.get("scores", {}).get("governance", 0),
                         "overall": latest.get("scores", {}).get("overall", 0),
                     },
                     "trend": "stable",  # Would calculate from history
-                    "last_updated": latest.get("created_at", "").isoformat() if latest.get("created_at") else None
+                    "last_updated": (
+                        latest.get("created_at", "").isoformat()
+                        if latest.get("created_at")
+                        else None
+                    ),
                 }
             else:
                 # No data found for this company
                 results[company] = {
                     "scores": None,
                     "trend": None,
-                    "message": "No analysis data available for this company"
+                    "message": "No analysis data available for this company",
                 }
                 continue
 
@@ -1431,7 +1457,7 @@ async def compare_companies(
 async def export_data(request: ExportRequest, user_id: str = Depends(verify_token)):
     """
     Export data in JSON or CSV format
-    
+
     Rate limits by tier:
     - Anonymous: 1/day
     - Free: 5/day
@@ -1500,7 +1526,7 @@ async def subscribe(request: SubscriptionRequest, user_id: str = Depends(verify_
         user = await db_manager.get_user(user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
-        
+
         # Create Stripe subscription
         customer = stripe.Customer.create(
             email=user["email"],
@@ -1516,15 +1542,15 @@ async def subscribe(request: SubscriptionRequest, user_id: str = Depends(verify_
 
         # Update user subscription in MongoDB
         success = await db_manager.update_user_subscription(
-            user_id,
-            request.tier,
-            tier_info["credits"],
-            customer.id,
-            subscription.id
+            user_id, request.tier, tier_info["credits"], customer.id, subscription.id
         )
 
         if success:
-            return {"success": True, "tier": request.tier, "credits": tier_info["credits"]}
+            return {
+                "success": True,
+                "tier": request.tier,
+                "credits": tier_info["credits"],
+            }
         else:
             raise HTTPException(status_code=500, detail="Failed to update subscription")
 
@@ -1539,29 +1565,26 @@ async def health_check():
     try:
         # Check MongoDB connection
         mongo_health = await db_manager.health_check()
-        
+
         # Check Redis connection
         redis_status = "healthy"
         try:
             redis_client.ping()
         except Exception as e:
             redis_status = f"unhealthy: {str(e)}"
-        
+
         return {
             "status": "healthy" if mongo_health["status"] == "healthy" else "degraded",
             "timestamp": datetime.utcnow().isoformat(),
             "version": "1.0.0",
-            "services": {
-                "mongodb": mongo_health,
-                "redis": redis_status
-            }
+            "services": {"mongodb": mongo_health, "redis": redis_status},
         }
     except Exception as e:
         logger.error(f"Health check error: {e}")
         return {
             "status": "unhealthy",
             "timestamp": datetime.utcnow().isoformat(),
-            "error": str(e)
+            "error": str(e),
         }
 
 
@@ -1573,11 +1596,11 @@ async def detailed_health_check():
         "redis": "unknown",
         "memory": "unknown",
         "cpu": "unknown",
-        "disk": "unknown"
+        "disk": "unknown",
     }
-    
+
     metrics = {}
-    
+
     # MongoDB check
     try:
         mongo_health = await db_manager.health_check()
@@ -1585,7 +1608,7 @@ async def detailed_health_check():
         metrics["mongodb_connections"] = mongo_health.get("connections", {})
     except Exception as e:
         checks["mongodb"] = f"unhealthy: {str(e)}"
-    
+
     # Redis check
     try:
         redis_client.ping()
@@ -1595,44 +1618,56 @@ async def detailed_health_check():
         metrics["redis_connected_clients"] = info.get("connected_clients", 0)
     except Exception as e:
         checks["redis"] = f"unhealthy: {str(e)}"
-    
+
     # System metrics if psutil available
     if PSUTIL_AVAILABLE:
         try:
             # Memory check
             memory = psutil.virtual_memory()
-            checks["memory"] = "healthy" if memory.percent < 80 else "warning" if memory.percent < 90 else "critical"
+            checks["memory"] = (
+                "healthy"
+                if memory.percent < 80
+                else "warning" if memory.percent < 90 else "critical"
+            )
             metrics["memory_percent"] = memory.percent
             metrics["memory_available_mb"] = memory.available / 1024 / 1024
-            
+
             # CPU check
             cpu_percent = psutil.cpu_percent(interval=1)
-            checks["cpu"] = "healthy" if cpu_percent < 70 else "warning" if cpu_percent < 85 else "critical"
+            checks["cpu"] = (
+                "healthy"
+                if cpu_percent < 70
+                else "warning" if cpu_percent < 85 else "critical"
+            )
             metrics["cpu_percent"] = cpu_percent
-            
+
             # Disk check
-            disk = psutil.disk_usage('/')
-            checks["disk"] = "healthy" if disk.percent < 80 else "warning" if disk.percent < 90 else "critical"
+            disk = psutil.disk_usage("/")
+            checks["disk"] = (
+                "healthy"
+                if disk.percent < 80
+                else "warning" if disk.percent < 90 else "critical"
+            )
             metrics["disk_percent"] = disk.percent
             metrics["disk_free_gb"] = disk.free / 1024 / 1024 / 1024
-            
+
         except Exception as e:
             logger.error(f"Error getting system metrics: {e}")
-    
+
     # Overall status
     overall = "healthy"
     if any("unhealthy" in str(v) or v == "critical" for v in checks.values()):
         overall = "unhealthy"
     elif any(v == "warning" for v in checks.values()):
         overall = "degraded"
-    
+
     return {
         "status": overall,
         "timestamp": datetime.utcnow().isoformat(),
         "version": "1.0.0",
         "environment": ENVIRONMENT,
         "checks": checks,
-        "metrics": metrics
+        "metrics": metrics,
     }
 
 
@@ -1731,11 +1766,11 @@ async def benchmark_companies(
         analyses = await db_manager.get_user_analyses(
             user_id, limit=1, company_name=company
         )
-        
+
         if analyses and analyses[0].get("framework_coverage"):
             latest = analyses[0]
             framework_coverage = latest.get("framework_coverage", {})
-            
+
             results[company] = {
                 "scores": {
                     "environmental": latest.get("scores", {}).get("environmental", 0),
@@ -1743,9 +1778,9 @@ async def benchmark_companies(
                     "governance": latest.get("scores", {}).get("governance", 0),
                     "overall": latest.get("scores", {}).get("overall", 0),
                 },
-                "framework_compliance": {}
+                "framework_compliance": {},
             }
-            
+
             # Add framework compliance data
             for framework in frameworks:
                 if framework in framework_coverage:
@@ -1778,18 +1813,24 @@ async def benchmark_companies(
                     }
                     for framework in frameworks
                 },
-                "message": "No framework analysis available"
+                "message": "No framework analysis available",
             }
 
     # Calculate averages from actual data
     companies_with_data = [c for c in results.values() if c["scores"]["overall"] > 0]
-    
+
     if companies_with_data:
         avg_scores = {
-            "environmental": sum(c["scores"]["environmental"] for c in companies_with_data) / len(companies_with_data),
-            "social": sum(c["scores"]["social"] for c in companies_with_data) / len(companies_with_data),
-            "governance": sum(c["scores"]["governance"] for c in companies_with_data) / len(companies_with_data),
-            "overall": sum(c["scores"]["overall"] for c in companies_with_data) / len(companies_with_data),
+            "environmental": sum(
+                c["scores"]["environmental"] for c in companies_with_data
+            )
+            / len(companies_with_data),
+            "social": sum(c["scores"]["social"] for c in companies_with_data)
+            / len(companies_with_data),
+            "governance": sum(c["scores"]["governance"] for c in companies_with_data)
+            / len(companies_with_data),
+            "overall": sum(c["scores"]["overall"] for c in companies_with_data)
+            / len(companies_with_data),
         }
     else:
         avg_scores = {
@@ -1889,12 +1930,15 @@ async def startup_event():
     # Set Sentry context
     if SENTRY_AVAILABLE and SENTRY_DSN:
         sentry_sdk.set_tag("app.version", "1.0.0")
-        sentry_sdk.set_context("app", {
-            "name": "ESG Intelligence API",
-            "instance": os.getenv("HOSTNAME", "unknown"),
-            "environment": ENVIRONMENT
-        })
-    
+        sentry_sdk.set_context(
+            "app",
+            {
+                "name": "ESG Intelligence API",
+                "instance": os.getenv("HOSTNAME", "unknown"),
+                "environment": ENVIRONMENT,
+            },
+        )
+
     # Log startup
     logger.info(f"ESG Intelligence API v1.0.0 starting in {ENVIRONMENT} mode")
     logger.info(f"MongoDB connected: {bool(db_manager)}")
@@ -1939,26 +1983,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # Security headers middleware
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     """Add security headers to all responses"""
     response = await call_next(request)
-    
+
     # Security headers
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Permissions-Policy"] = "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
-    
+    response.headers["Permissions-Policy"] = (
+        "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+    )
+
     # Only add HSTS in production
     if ENVIRONMENT == "production":
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
-    
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains; preload"
+        )
+
     # Content Security Policy (adjust as needed)
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://api.blueprintbuddy.io"
-    
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://api.blueprintbuddy.io"
+    )
+
     return response
 
 
