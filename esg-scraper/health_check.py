@@ -26,7 +26,9 @@ def main():
     required_files = [
         "lean_esg_platform.py",
         "esg_frameworks.py",
-        "database_schema.py",
+        "mongodb_manager.py",
+        "metrics_standardizer.py",
+        "api_versioning.py",
         "requirements.txt",
     ]
 
@@ -52,16 +54,21 @@ def main():
         ("bs4", "BeautifulSoup"),
         ("redis", "Redis"),
         ("celery", "Celery"),
-        ("sqlalchemy", "SQLAlchemy"),
+        ("motor", "Motor (MongoDB)"),
         ("httpx", "HTTPX"),
         ("pandas", "Pandas"),
         ("numpy", "NumPy"),
+        ("yake", "YAKE"),
+        ("jwt", "PyJWT"),
+        ("slowapi", "SlowAPI"),
     ]
 
     optional_imports = [
         ("trafilatura", "Trafilatura"),
         ("transformers", "Transformers"),
         ("prometheus_client", "Prometheus Client"),
+        ("sentry_sdk", "Sentry SDK"),
+        ("psutil", "PSUtil"),
     ]
 
     # Check critical imports
@@ -102,6 +109,13 @@ def main():
     except Exception as e:
         print(f"❌ ESG Framework Manager failed: {e}")
         return False
+
+    # Test MongoDB manager
+    try:
+        from mongodb_manager import get_mongodb_manager
+        print("✅ MongoDB Manager module loaded")
+    except Exception as e:
+        print(f"⚠️  MongoDB Manager failed to import: {e}")
 
     print("\n🎉 Health check passed!")
     print(f"📊 {len(critical_imports)} critical imports OK")
