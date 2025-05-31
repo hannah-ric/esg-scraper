@@ -116,11 +116,6 @@ jobs:
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
       
-      - name: Install jq
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq
-      
       - name: Deploy to DigitalOcean App Platform
         run: |
           # Update app spec with new image
@@ -147,18 +142,23 @@ jobs:
           
           # Get app details and extract URL
           echo "Getting app details..."
-          doctl apps get $APP_ID --format json > app_details.json
+          # Use the LiveURL format directly since json format isn't supported
+          APP_URL=$(doctl apps get $APP_ID --format LiveURL --no-header)
           
-          # Extract the live URL from the JSON
-          APP_URL=$(cat app_details.json | jq -r '.live_url // empty')
-          
-          # If no live URL yet, construct it from the default domain
-          if [ -z "$APP_URL" ]; then
-            DEFAULT_DOMAIN=$(cat app_details.json | jq -r '.default_ingress // empty')
-            if [ -n "$DEFAULT_DOMAIN" ]; then
-              APP_URL="https://$DEFAULT_DOMAIN"
+          # If empty, try to get the default ingress
+          if [ -z "$APP_URL" ] || [ "$APP_URL" = "<nil>" ]; then
+            echo "No LiveURL found, trying to get default ingress..."
+            # Get the full app details and parse
+            doctl apps get $APP_ID > app_details.txt
+            
+            # Try to extract the default ingress URL
+            DEFAULT_INGRESS=$(doctl apps get $APP_ID --format DefaultIngress --no-header || echo "")
+            
+            if [ -n "$DEFAULT_INGRESS" ] && [ "$DEFAULT_INGRESS" != "<nil>" ]; then
+              APP_URL="https://$DEFAULT_INGRESS"
             else
-              # Fallback: construct from app name
+              # Fallback: construct from app ID
+              echo "No default ingress found, constructing URL from app ID..."
               APP_URL="https://esg-scraper-$(echo $APP_ID | cut -c1-5).ondigitalocean.app"
             fi
           fi
