@@ -171,14 +171,18 @@ jobs:
     
     steps:
       - name: Notify deployment status
-        if: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          if [ "${{ job.status }}" = "success" ]; then
-            curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
-              -H 'Content-type: application/json' \
-              --data '{"text":"✅ ESG Scraper deployed successfully!\nCommit: ${{ github.sha }}\nAuthor: ${{ github.actor }}\nURL: ${{ secrets.APP_URL }}"}'
+          # Only run if SLACK_WEBHOOK_URL is set in repository variables
+          if [ -n "${{ vars.SLACK_WEBHOOK_URL || '' }}" ]; then
+            if [ "${{ job.status }}" = "success" ]; then
+              curl -X POST ${{ vars.SLACK_WEBHOOK_URL }} \
+                -H 'Content-type: application/json' \
+                --data '{"text":"✅ ESG Scraper deployed successfully!\nCommit: ${{ github.sha }}\nAuthor: ${{ github.actor }}\nURL: ${{ secrets.APP_URL }}"}'
+            else
+              curl -X POST ${{ vars.SLACK_WEBHOOK_URL }} \
+                -H 'Content-type: application/json' \
+                --data '{"text":"❌ ESG Scraper deployment failed!\nCommit: ${{ github.sha }}\nAuthor: ${{ github.actor }}\nCheck: https://github.com/${{ github.repository }}/actions"}'
+            fi
           else
-            curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
-              -H 'Content-type: application/json' \
-              --data '{"text":"❌ ESG Scraper deployment failed!\nCommit: ${{ github.sha }}\nAuthor: ${{ github.actor }}\nCheck: https://github.com/${{ github.repository }}/actions"}'
+            echo "Slack webhook not configured, skipping notification"
           fi 

@@ -1,0 +1,119 @@
+name: esg-scraper
+region: nyc1
+
+services:
+  - name: api
+    source_dir: /
+    github:
+      repo: hannah-ric/esg-scraper
+      branch: main
+      deploy_on_push: true
+    
+    # Use pre-built container image
+    image:
+      registry_type: DOCR
+      registry: hannahricci
+      repository: esg-scraper
+      tag: image_tag_placeholder
+    
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    
+    routes:
+      - path: /
+    
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 60
+      period_seconds: 10
+      timeout_seconds: 5
+      failure_threshold: 3
+      success_threshold: 2
+    
+    run_command: /app/start_production.sh
+    
+    envs:
+      - key: ENVIRONMENT
+        value: production
+        scope: RUN_TIME
+      
+      - key: JWT_SECRET
+        value: yoWNNtazF_gZhsKIUj90MspZvpIPa36P1S1e7Ifo8rc
+        type: SECRET
+        scope: RUN_TIME
+      
+      - key: DATABASE_PATH
+        value: /app/data/esg_data.db
+        scope: RUN_TIME
+      
+      - key: REDIS_URL
+        value: redis://localhost:6379
+        scope: RUN_TIME
+      
+      - key: FREE_TIER_CREDITS
+        value: "1000"
+        scope: RUN_TIME
+      
+      - key: LOG_LEVEL
+        value: INFO
+        scope: RUN_TIME
+      
+      - key: WORKERS
+        value: "2"
+        scope: RUN_TIME
+      
+      # Optional: Stripe for payments
+      - key: STRIPE_SECRET_KEY
+        value: pk_live_51R7oGf2NCH5WIKkCPFEpolhe4K4om747BOEW8x1XgXQieF4mBM6IDaHPjdfs0FoIqA5W2bYknW6tcVGn8raMpt7t00iZbZlrTo
+        type: SECRET
+        scope: RUN_TIME
+      
+      # Optional: Slack notifications
+      - key: SLACK_WEBHOOK_URL
+        value: YOUR_SLACK_WEBHOOK_URL
+        type: SECRET
+        scope: RUN_TIME
+
+# Optional: Add a managed database if you want external PostgreSQL
+# databases:
+#   - name: esg-db
+#     engine: PG
+#     version: "14"
+#     size: db-s-1vcpu-1gb
+#     num_nodes: 1
+#     production: false
+
+# Optional: Add managed Redis
+# databases:
+#   - name: esg-redis
+#     engine: REDIS
+#     version: "7"
+#     size: db-s-1vcpu-1gb
+#     num_nodes: 1
+#     production: false
+
+# Domains - configure after deployment
+# domains:
+#   - domain: your-domain.com
+#     type: PRIMARY
+#   - domain: www.your-domain.com
+#     type: ALIAS
+#     minimum_tls_version: "1.2"
+
+# Features
+features:
+  - buildpack-stack: ubuntu-18
+
+# Alerts
+alerts:
+  - rule: CPU_UTILIZATION
+    value: 80
+    operator: GREATER_THAN
+    window: FIVE_MINUTES
+    disabled: false
+  
+  - rule: MEM_UTILIZATION
+    value: 80
+    operator: GREATER_THAN
+    window: FIVE_MINUTES
+    disabled: false 
