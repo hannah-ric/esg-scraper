@@ -9,6 +9,7 @@ on:
 env:
   REGISTRY: registry.digitalocean.com
   IMAGE_NAME: esg-scraper
+  WORKING_DIR: esg-scraper
 
 jobs:
   test:
@@ -26,34 +27,40 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('esg-scraper/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
       
       - name: Install dependencies
         run: |
+          cd ${{ env.WORKING_DIR }}
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest pytest-asyncio flake8 black
       
       - name: Check code formatting
         run: |
+          cd ${{ env.WORKING_DIR }}
           black --check . --exclude="venv|__pycache__|.git"
       
       - name: Run linting
         run: |
+          cd ${{ env.WORKING_DIR }}
           flake8 . --max-line-length=120 --exclude=venv,__pycache__,.git,logs,data,models
       
       - name: Run health check
         run: |
+          cd ${{ env.WORKING_DIR }}
           python health_check.py
       
       - name: Run framework tests
         run: |
+          cd ${{ env.WORKING_DIR }}
           pytest test_framework_compliance.py -v
       
       - name: Test API endpoints
         run: |
+          cd ${{ env.WORKING_DIR }}
           pytest test_esg_service.py -v
 
   build-and-push:
@@ -71,6 +78,7 @@ jobs:
       
       - name: Build container image
         run: |
+          cd ${{ env.WORKING_DIR }}
           docker build -t ${{ env.REGISTRY }}/${{ secrets.DO_REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:latest .
           docker build -t ${{ env.REGISTRY }}/${{ secrets.DO_REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} .
       
@@ -97,14 +105,14 @@ jobs:
       - name: Deploy to DigitalOcean App Platform
         run: |
           # Update app spec with new image
-          sed -i "s|image_tag_placeholder|${{ github.sha }}|g" deployment/app.yaml
+          sed -i "s|image_tag_placeholder|${{ github.sha }}|g" ${{ env.WORKING_DIR }}/deployment/app.yaml
           
           # Deploy or create app
           if doctl apps list | grep -q "esg-scraper"; then
             APP_ID=$(doctl apps list --format ID,Spec.Name --no-header | grep esg-scraper | awk '{print $1}')
-            doctl apps update $APP_ID --spec deployment/app.yaml
+            doctl apps update $APP_ID --spec ${{ env.WORKING_DIR }}/deployment/app.yaml
           else
-            doctl apps create --spec deployment/app.yaml
+            doctl apps create --spec ${{ env.WORKING_DIR }}/deployment/app.yaml
           fi
 
   health-check:
