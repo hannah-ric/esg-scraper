@@ -113,6 +113,7 @@ def main():
     # Test MongoDB manager
     try:
         from mongodb_manager import get_mongodb_manager
+
         print("✅ MongoDB Manager module loaded")
     except Exception as e:
         print(f"⚠️  MongoDB Manager failed to import: {e}")
