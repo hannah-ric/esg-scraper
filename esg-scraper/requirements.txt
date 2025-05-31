@@ -86,4 +86,8 @@ botocore>=1.34.41,<1.34.70  # Fix aiobotocore compatibility
 dask==2024.8.2  # Fix dask-expr compatibility
 
 # Character encoding
-charset-normalizer>=3.4.0 
+charset-normalizer>=3.4.0
+
+# Production Monitoring
+sentry-sdk[fastapi]==1.40.0  # Error tracking and APM
+psutil==5.9.6  # System resource monitoring for health checks 

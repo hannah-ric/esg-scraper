@@ -38,20 +38,27 @@ services:
         scope: RUN_TIME
       
       - key: JWT_SECRET
-        value: YOUR_JWT_SECRET_CHANGE_THIS
+        value: ${JWT_SECRET}
         type: SECRET
         scope: RUN_TIME
       
-      - key: DATABASE_PATH
-        value: /app/data/esg_data.db
+      - key: MONGODB_URI
+        value: ${MONGODB_URI}
+        type: SECRET
         scope: RUN_TIME
       
       - key: REDIS_URL
-        value: redis://localhost:6379
+        value: ${UPSTASH_REDIS_URL}
+        type: SECRET
+        scope: RUN_TIME
+      
+      - key: SENTRY_DSN
+        value: ${SENTRY_DSN}
+        type: SECRET
         scope: RUN_TIME
       
       - key: FREE_TIER_CREDITS
-        value: "1000"
+        value: "100"
         scope: RUN_TIME
       
       - key: LOG_LEVEL
@@ -62,15 +69,19 @@ services:
         value: "2"
         scope: RUN_TIME
       
+      - key: CORS_ORIGINS
+        value: "https://blueprintbuddy.io,https://www.blueprintbuddy.io"
+        scope: RUN_TIME
+      
       # Optional: Stripe for payments
       - key: STRIPE_SECRET_KEY
-        value: sk_test_YOUR_STRIPE_KEY
+        value: ${STRIPE_SECRET_KEY}
         type: SECRET
         scope: RUN_TIME
       
       # Optional: Slack notifications
       - key: SLACK_WEBHOOK_URL
-        value: YOUR_SLACK_WEBHOOK_URL
+        value: ${SLACK_WEBHOOK_URL}
         type: SECRET
         scope: RUN_TIME
 

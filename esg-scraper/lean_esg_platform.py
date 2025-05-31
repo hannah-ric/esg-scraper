@@ -28,6 +28,11 @@ from prometheus_client import Counter, Histogram, Gauge, generate_latest
 from fastapi.middleware.cors import CORSMiddleware
 from metrics_standardizer import MetricStandardizer
 import ssl
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from fastapi.responses import JSONResponse
 
 # Optional import for trafilatura
 try:
@@ -59,10 +64,31 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Import Sentry for error tracking
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.redis import RedisIntegration
+    from sentry_sdk.integrations.logging import LoggingIntegration
+    SENTRY_AVAILABLE = True
+except ImportError:
+    SENTRY_AVAILABLE = False
+    logger.warning("Sentry SDK not available. Error tracking disabled.")
+
+# Import psutil for system monitoring
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+
 # Configuration
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
 STRIPE_KEY = os.getenv("STRIPE_SECRET_KEY")
 JWT_SECRET = os.getenv("JWT_SECRET")
+SENTRY_DSN = os.getenv("SENTRY_DSN")
+ENVIRONMENT = os.getenv("ENVIRONMENT", "production")
+
 if not JWT_SECRET:
     logger.error("JWT_SECRET environment variable is not set!")
     raise ValueError("JWT_SECRET must be set in environment variables")
@@ -73,24 +99,136 @@ FREE_TIER_CREDITS = int(os.getenv("FREE_TIER_CREDITS", "100"))
 # CORS configuration
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 
+# Initialize Sentry if available and configured
+if SENTRY_AVAILABLE and SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=ENVIRONMENT,
+        integrations=[
+            FastApiIntegration(transaction_style="endpoint"),
+            RedisIntegration(),
+            LoggingIntegration(
+                level=logging.INFO,
+                event_level=logging.ERROR
+            ),
+        ],
+        traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
+        profiles_sample_rate=0.1,  # 10% profiling
+        attach_stacktrace=True,
+        send_default_pii=False,  # GDPR compliance
+        before_send=lambda event, hint: event if ENVIRONMENT != "development" else None,
+    )
+    logger.info(f"Sentry initialized for {ENVIRONMENT} environment")
+
 # Initialize services
 app = FastAPI(title="ESG Intelligence API", version="1.0.0")
 security = HTTPBearer()
 
+# Add rate limiter to app
+# (limiter will be initialized after configuration)
+
+# Custom rate limit error handler with tier information
+@app.exception_handler(RateLimitExceeded)
+async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    response = JSONResponse(
+        status_code=429,
+        content={
+            "error": "Rate limit exceeded",
+            "message": str(exc.detail),
+            "retry_after": exc.headers.get("Retry-After", "60"),
+            "upgrade_url": "https://blueprintbuddy.io/pricing"
+        }
+    )
+    response.headers["Retry-After"] = exc.headers.get("Retry-After", "60")
+    response.headers["X-RateLimit-Limit"] = exc.headers.get("X-RateLimit-Limit", "")
+    response.headers["X-RateLimit-Remaining"] = exc.headers.get("X-RateLimit-Remaining", "0")
+    response.headers["X-RateLimit-Reset"] = exc.headers.get("X-RateLimit-Reset", "")
+    return response
+
 # Initialize Redis with SSL support for managed Redis
 if REDIS_URL.startswith('rediss://'):
     # Managed Redis with SSL
-    redis_client = redis.from_url(
-        REDIS_URL,
-        decode_responses=True,
-        ssl_cert_reqs=ssl.CERT_REQUIRED,
-        ssl_ca_certs=ssl.get_default_verify_paths().cafile
-    )
+    # Check if it's Upstash (they use self-signed certs)
+    if 'upstash.io' in REDIS_URL:
+        redis_client = redis.from_url(
+            REDIS_URL,
+            decode_responses=True,
+            ssl_cert_reqs=ssl.CERT_NONE  # Upstash uses self-signed certs
+        )
+    else:
+        redis_client = redis.from_url(
+            REDIS_URL,
+            decode_responses=True,
+            ssl_cert_reqs=ssl.CERT_REQUIRED,
+            ssl_ca_certs=ssl.get_default_verify_paths().cafile
+        )
 else:
     # Local Redis without SSL
     redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 
 stripe.api_key = STRIPE_KEY
+
+# Initialize rate limiter with Redis backend
+def get_user_tier_from_request(request: Request) -> str:
+    """Extract user tier from request for rate limiting"""
+    try:
+        # Try to get user from JWT token
+        auth = request.headers.get("Authorization", "")
+        if auth.startswith("Bearer "):
+            token = auth.split(" ")[1]
+            payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            user_id = payload.get("user_id")
+            
+            # In production, this would be async, but for rate limiting we need sync
+            # For now, return a default - in production, cache user tiers in Redis
+            tier_cache_key = f"user_tier:{user_id}"
+            cached_tier = redis_client.get(tier_cache_key)
+            if cached_tier:
+                return cached_tier
+            
+            # Default to free tier if not cached
+            return "free"
+    except:
+        pass
+    
+    return "anonymous"
+
+# Configure rate limiter
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["100 per hour"],  # Default for anonymous users
+    storage_uri=REDIS_URL,
+    strategy="fixed-window-elastic-expiry"
+)
+
+# Define tier-specific rate limits
+RATE_LIMITS = {
+    "analyze": {
+        "anonymous": "5 per hour",
+        "free": "20 per hour",
+        "starter": "100 per hour",
+        "growth": "500 per hour",
+        "enterprise": "2000 per hour"
+    },
+    "export": {
+        "anonymous": "1 per day",
+        "free": "5 per day",
+        "starter": "20 per day",
+        "growth": "100 per day",
+        "enterprise": "1000 per day"
+    },
+    "compare": {
+        "anonymous": "5 per hour",
+        "free": "10 per hour",
+        "starter": "50 per hour",
+        "growth": "200 per hour",
+        "enterprise": "1000 per hour"
+    }
+}
+
+# Register rate limiter with app
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Load ML model once (disabled for memory constraints)
 # Uncomment when using larger instance size (basic-s or higher)
@@ -1097,43 +1235,101 @@ async def register(registration: UserRegistration):
 
 
 @app.post("/analyze", response_model=EnhancedAnalysisResponse)
+@limiter.limit("5 per hour")  # Default limit for anonymous users
 async def analyze_endpoint(
     request: AnalyzeRequest,
     background_tasks: BackgroundTasks,
     user_id: str = Depends(verify_token),
 ):
-    """Enhanced analysis endpoint with framework compliance"""
-    # Check rate limit
-    await check_rate_limit(user_id, "analyze")
+    """
+    Analyze ESG performance from URL or text with framework compliance
+    
+    Rate limits by tier:
+    - Anonymous: 5/hour
+    - Free: 20/hour  
+    - Starter: 100/hour
+    - Growth: 500/hour
+    - Enterprise: 2000/hour
+    """
+    request_start = time.time()
+    
+    # Check and apply tier-specific rate limit
+    try:
+        # Get user tier from database
+        user = await db_manager.get_user(user_id)
+        tier = user.get("tier", "free") if user else "free"
+        
+        # Cache tier in Redis for future rate limiting
+        redis_client.setex(f"user_tier:{user_id}", 3600, tier)
+        
+        # Apply tier-specific limit
+        tier_limit = RATE_LIMITS["analyze"].get(tier, "20 per hour")
+        await limiter.limit(tier_limit)(analyze_endpoint)
+    except RateLimitExceeded:
+        raise
+    except Exception as e:
+        logger.warning(f"Could not apply tier-specific rate limit: {e}")
+    
+    request_count.labels(method="POST", endpoint="/analyze", status="pending").inc()
 
     # Track usage
-    operation = "analyze_quick" if request.quick_mode else "analyze_full"
-    usage = await usage_tracker.track_usage(user_id, operation)
+    await usage_tracker.track_usage(user_id, "analyze")
 
     # Get content
-    if request.url:
-        content = await scraper.scrape(str(request.url))
-        source = str(request.url)
-    elif request.text:
-        content = request.text
-        source = "direct_text"
-    else:
-        raise HTTPException(status_code=400, detail="Provide URL or text")
+    try:
+        if request.url:
+            content = await scraper.scrape(str(request.url))
+            source = str(request.url)
+        else:
+            content = request.text
+            source = "direct_text"
+    except Exception as e:
+        # Add Sentry context for scraping errors
+        if SENTRY_AVAILABLE:
+            with sentry_sdk.push_scope() as scope:
+                scope.set_tag("error.type", "scraping")
+                scope.set_context("request", {
+                    "url": str(request.url) if request.url else None,
+                    "company": request.company_name,
+                    "user_id": user_id
+                })
+                sentry_sdk.capture_exception(e)
+        
+        logger.error(f"Scraping error for user {user_id}: {e}")
+        scraping_errors.inc()
+        raise HTTPException(status_code=400, detail=f"Failed to fetch content: {str(e)}")
 
     # Enhanced analysis with frameworks
-    result = await engine.analyze(
-        content,
-        request.company_name,
-        request.quick_mode,
-        request.frameworks,
-        request.industry_sector,
-        request.extract_metrics,
-    )
+    try:
+        result = await engine.analyze(
+            content,
+            company_name=request.company_name,
+            quick_mode=request.quick_mode,
+            frameworks=request.frameworks,
+            industry_sector=request.industry_sector,
+            extract_metrics=request.extract_metrics,
+        )
+    except Exception as e:
+        # Add Sentry context for analysis errors
+        if SENTRY_AVAILABLE:
+            with sentry_sdk.push_scope() as scope:
+                scope.set_tag("error.type", "analysis")
+                scope.set_context("analysis_params", {
+                    "company": request.company_name,
+                    "quick_mode": request.quick_mode,
+                    "frameworks": request.frameworks,
+                    "user_id": user_id,
+                    "content_length": len(content) if content else 0
+                })
+                sentry_sdk.capture_exception(e)
+        
+        logger.error(f"Analysis error for user {user_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
     # Add metadata
     result["source"] = source
-    result["credits_used"] = usage_tracker.costs[operation]
-    result["credits_remaining"] = await usage_tracker.get_user_limit(user_id) - usage
+    result["credits_used"] = usage_tracker.costs["analyze"]
+    result["credits_remaining"] = await usage_tracker.get_user_limit(user_id) - usage_tracker.costs["analyze"]
 
     # Save to enhanced database
     await db_manager.save_analysis(
@@ -1142,7 +1338,7 @@ async def analyze_endpoint(
 
     # Log for analytics (async)
     background_tasks.add_task(
-        log_analytics, user_id, operation, result["scores"]["overall"]
+        log_analytics, user_id, "analyze", result["scores"]["overall"]
     )
 
     # Update metrics
@@ -1158,12 +1354,22 @@ async def analyze_endpoint(
 
 
 @app.post("/compare")
+@limiter.limit("5 per hour")  # Default limit
 async def compare_companies(
     request: CompareRequest, user_id: str = Depends(verify_token)
 ):
-    """Compare multiple companies"""
+    """
+    Compare multiple companies
+    
+    Rate limits by tier:
+    - Anonymous: 5/hour
+    - Free: 10/hour
+    - Starter: 50/hour
+    - Growth: 200/hour
+    - Enterprise: 1000/hour
+    """
     # Track usage
-    await usage_tracker.track_usage(user_id, "analyze_quick", len(request.companies))
+    await usage_tracker.track_usage(user_id, "analyze", len(request.companies))
 
     results = {}
     for company in request.companies:
@@ -1221,8 +1427,18 @@ async def compare_companies(
 
 
 @app.post("/export")
+@limiter.limit("1 per day")  # Default limit
 async def export_data(request: ExportRequest, user_id: str = Depends(verify_token)):
-    """Export analysis data"""
+    """
+    Export data in JSON or CSV format
+    
+    Rate limits by tier:
+    - Anonymous: 1/day
+    - Free: 5/day
+    - Starter: 20/day
+    - Growth: 100/day
+    - Enterprise: 1000/day
+    """
     # Track usage
     await usage_tracker.track_usage(user_id, "export")
 
@@ -1349,6 +1565,77 @@ async def health_check():
         }
 
 
+@app.get("/health/detailed")
+async def detailed_health_check():
+    """Detailed health check with system metrics"""
+    checks = {
+        "mongodb": "unknown",
+        "redis": "unknown",
+        "memory": "unknown",
+        "cpu": "unknown",
+        "disk": "unknown"
+    }
+    
+    metrics = {}
+    
+    # MongoDB check
+    try:
+        mongo_health = await db_manager.health_check()
+        checks["mongodb"] = mongo_health["status"]
+        metrics["mongodb_connections"] = mongo_health.get("connections", {})
+    except Exception as e:
+        checks["mongodb"] = f"unhealthy: {str(e)}"
+    
+    # Redis check
+    try:
+        redis_client.ping()
+        info = redis_client.info()
+        checks["redis"] = "healthy"
+        metrics["redis_memory_mb"] = info.get("used_memory", 0) / 1024 / 1024
+        metrics["redis_connected_clients"] = info.get("connected_clients", 0)
+    except Exception as e:
+        checks["redis"] = f"unhealthy: {str(e)}"
+    
+    # System metrics if psutil available
+    if PSUTIL_AVAILABLE:
+        try:
+            # Memory check
+            memory = psutil.virtual_memory()
+            checks["memory"] = "healthy" if memory.percent < 80 else "warning" if memory.percent < 90 else "critical"
+            metrics["memory_percent"] = memory.percent
+            metrics["memory_available_mb"] = memory.available / 1024 / 1024
+            
+            # CPU check
+            cpu_percent = psutil.cpu_percent(interval=1)
+            checks["cpu"] = "healthy" if cpu_percent < 70 else "warning" if cpu_percent < 85 else "critical"
+            metrics["cpu_percent"] = cpu_percent
+            
+            # Disk check
+            disk = psutil.disk_usage('/')
+            checks["disk"] = "healthy" if disk.percent < 80 else "warning" if disk.percent < 90 else "critical"
+            metrics["disk_percent"] = disk.percent
+            metrics["disk_free_gb"] = disk.free / 1024 / 1024 / 1024
+            
+        except Exception as e:
+            logger.error(f"Error getting system metrics: {e}")
+    
+    # Overall status
+    overall = "healthy"
+    if any("unhealthy" in str(v) or v == "critical" for v in checks.values()):
+        overall = "unhealthy"
+    elif any(v == "warning" for v in checks.values()):
+        overall = "degraded"
+    
+    return {
+        "status": overall,
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": "1.0.0",
+        "environment": ENVIRONMENT,
+        "checks": checks,
+        "metrics": metrics
+    }
+
+
 # New framework-specific endpoints
 @app.get("/frameworks")
 async def get_frameworks():
@@ -1436,7 +1723,7 @@ async def benchmark_companies(
         raise HTTPException(status_code=400, detail="Maximum 10 companies allowed")
 
     # Track usage
-    await usage_tracker.track_usage(user_id, "analyze_quick", len(companies))
+    await usage_tracker.track_usage(user_id, "analyze", len(companies))
 
     results = {}
     for company in companies:
@@ -1595,6 +1882,26 @@ async def check_rate_limit(user_id: str, operation: str = "default"):
 db_manager = get_mongodb_manager()
 
 
+# --- STARTUP EVENTS ---
+@app.on_event("startup")
+async def startup_event():
+    """Initialize services on startup"""
+    # Set Sentry context
+    if SENTRY_AVAILABLE and SENTRY_DSN:
+        sentry_sdk.set_tag("app.version", "1.0.0")
+        sentry_sdk.set_context("app", {
+            "name": "ESG Intelligence API",
+            "instance": os.getenv("HOSTNAME", "unknown"),
+            "environment": ENVIRONMENT
+        })
+    
+    # Log startup
+    logger.info(f"ESG Intelligence API v1.0.0 starting in {ENVIRONMENT} mode")
+    logger.info(f"MongoDB connected: {bool(db_manager)}")
+    logger.info(f"Redis connected: {bool(redis_client)}")
+    logger.info(f"Sentry enabled: {bool(SENTRY_AVAILABLE and SENTRY_DSN)}")
+
+
 # --- MIDDLEWARE ---
 @app.middleware("http")
 async def add_metrics(request, call_next):
@@ -1631,6 +1938,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Security headers middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Add security headers to all responses"""
+    response = await call_next(request)
+    
+    # Security headers
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+    
+    # Only add HSTS in production
+    if ENVIRONMENT == "production":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+    
+    # Content Security Policy (adjust as needed)
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://api.blueprintbuddy.io"
+    
+    return response
 
 
 if __name__ == "__main__":
