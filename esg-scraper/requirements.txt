@@ -49,6 +49,11 @@ python-json-logger==2.0.7
 # Caching
 redis==5.0.1
 
+# MongoDB drivers for production database
+motor==3.3.2  # Async MongoDB driver for FastAPI
+pymongo==4.6.1  # MongoDB driver
+dnspython==2.4.2  # Required for MongoDB+SRV connections
+
 # Testing
 pytest==7.4.3
 pytest-asyncio==0.21.1

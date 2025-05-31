@@ -1,8 +1,0 @@
-Collecting click-repl
-  Using cached click_repl-0.3.0-py3-none-any.whl.metadata (3.6 kB)
-Requirement already satisfied: click>=7.0 in /opt/anaconda3/lib/python3.12/site-packages (from click-repl) (8.1.7)
-Requirement already satisfied: prompt-toolkit>=3.0.36 in /opt/anaconda3/lib/python3.12/site-packages (from click-repl) (3.0.43)
-Requirement already satisfied: wcwidth in /opt/anaconda3/lib/python3.12/site-packages (from prompt-toolkit>=3.0.36->click-repl) (0.2.5)
-Using cached click_repl-0.3.0-py3-none-any.whl (10 kB)
-Installing collected packages: click-repl
-Successfully installed click-repl-0.3.0

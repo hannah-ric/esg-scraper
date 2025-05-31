@@ -5,36 +5,49 @@ set -e
 
 echo "🚀 Starting ESG Scraper in production mode..."
 
-# Start Redis in the background
-echo "📦 Starting Redis server..."
-redis-server --daemonize yes --bind 0.0.0.0 --port 6379
-
-# Wait for Redis to start
-sleep 2
-
-# Check Redis connection
-redis-cli ping || {
-    echo "❌ Redis connection failed"
+# Verify environment variables
+echo "🔍 Checking environment configuration..."
+if [ -z "$MONGODB_URI" ]; then
+    echo "❌ MONGODB_URI not set!"
     exit 1
-}
+fi
 
-echo "✅ Redis server started successfully"
+if [ -z "$JWT_SECRET" ]; then
+    echo "❌ JWT_SECRET not set!"
+    exit 1
+fi
 
-# Initialize database if it doesn't exist
-echo "🗄️  Initializing database..."
+if [ -z "$REDIS_URL" ]; then
+    echo "❌ REDIS_URL not set!"
+    exit 1
+fi
+
+echo "✅ Environment variables configured"
+
+# Test MongoDB connection
+echo "🗄️  Testing MongoDB connection..."
 python -c "
 import os
-from lean_esg_platform import EnhancedDatabaseManager
+import asyncio
+from mongodb_manager import get_mongodb_manager
 
-# Create database manager and initialize schema
-db_path = os.getenv('DATABASE_PATH', '/app/data/esg_data.db')
-print(f'Initializing database at: {db_path}')
+async def test_connection():
+    try:
+        manager = get_mongodb_manager()
+        health = await manager.health_check()
+        if health['status'] == 'healthy':
+            print('✅ MongoDB connection successful')
+            print(f'   Version: {health.get(\"version\")}')
+        else:
+            print('❌ MongoDB connection failed')
+            return False
+        return True
+    except Exception as e:
+        print(f'❌ MongoDB connection error: {e}')
+        return False
 
-try:
-    db_manager = EnhancedDatabaseManager(db_path)
-    print('✅ Database initialized successfully')
-except Exception as e:
-    print(f'❌ Database initialization failed: {e}')
+success = asyncio.run(test_connection())
+if not success:
     exit(1)
 "
 
@@ -52,15 +65,17 @@ except Exception as e:
 "
 
 # Set production defaults
-export JWT_SECRET=${JWT_SECRET:-"production-secret-change-me-in-env"}
-export DATABASE_PATH=${DATABASE_PATH:-"/app/data/esg_data.db"}
-export REDIS_URL=${REDIS_URL:-"redis://localhost:6379"}
-export FREE_TIER_CREDITS=${FREE_TIER_CREDITS:-"1000"}
+export JWT_SECRET=${JWT_SECRET}
+export MONGODB_URI=${MONGODB_URI}
+export MONGODB_DATABASE=${MONGODB_DATABASE:-"admin"}
+export REDIS_URL=${REDIS_URL}
+export FREE_TIER_CREDITS=${FREE_TIER_CREDITS:-"100"}
 
 echo "🌐 Starting ESG Scraper API server..."
-echo "   Database: $DATABASE_PATH"
+echo "   MongoDB: Connected to managed cluster"
 echo "   Redis: $REDIS_URL"
 echo "   Port: 8000"
+echo "   Workers: ${WORKERS:-1}"
 
 # Start the FastAPI application with Gunicorn for production
 exec python -m gunicorn lean_esg_platform:app \

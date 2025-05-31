@@ -37,21 +37,30 @@ services:
         value: production
         scope: RUN_TIME
       
+      # SECURITY: Use GitHub Secrets for all sensitive values
       - key: JWT_SECRET
-        value: yoWNNtazF_gZhsKIUj90MspZvpIPa36P1S1e7Ifo8rc
+        value: ${JWT_SECRET}
         type: SECRET
         scope: RUN_TIME
       
-      - key: DATABASE_PATH
-        value: /app/data/esg_data.db
+      # MongoDB Configuration (replaces SQLite)
+      - key: MONGODB_URI
+        value: ${MONGODB_URI}
+        type: SECRET
         scope: RUN_TIME
       
+      - key: MONGODB_DATABASE
+        value: admin
+        scope: RUN_TIME
+      
+      # External Redis Configuration
       - key: REDIS_URL
-        value: redis://localhost:6379
+        value: ${REDIS_URL}
+        type: SECRET
         scope: RUN_TIME
       
       - key: FREE_TIER_CREDITS
-        value: "1000"
+        value: "100"
         scope: RUN_TIME
       
       - key: LOG_LEVEL
@@ -62,55 +71,67 @@ services:
         value: "1"
         scope: RUN_TIME
       
-      # Optional: Stripe for payments
+      # Stripe Configuration
       - key: STRIPE_SECRET_KEY
-        value: pk_live_51R7oGf2NCH5WIKkCPFEpolhe4K4om747BOEW8x1XgXQieF4mBM6IDaHPjdfs0FoIqA5W2bYknW6tcVGn8raMpt7t00iZbZlrTo
+        value: ${STRIPE_SECRET_KEY}
         type: SECRET
         scope: RUN_TIME
       
       # Optional: Slack notifications
       - key: SLACK_WEBHOOK_URL
-        value: YOUR_SLACK_WEBHOOK_URL
+        value: ${SLACK_WEBHOOK_URL}
         type: SECRET
         scope: RUN_TIME
+      
+      # Security: Allowed CORS origins
+      - key: CORS_ORIGINS
+        value: "https://blueprintbuddy.io,https://www.blueprintbuddy.io"
+        scope: RUN_TIME
+      
+      # MongoDB Connection Pool Settings
+      - key: MONGODB_POOL_SIZE
+        value: "50"
+        scope: RUN_TIME
+      
+      - key: MONGODB_MIN_POOL_SIZE
+        value: "5"
+        scope: RUN_TIME
 
-# Optional: Add a managed database if you want external PostgreSQL
-# databases:
-#   - name: esg-db
-#     engine: PG
-#     version: "14"
-#     size: db-s-1vcpu-1gb
-#     num_nodes: 1
-#     production: false
-
-# Optional: Add managed Redis
-# databases:
-#   - name: esg-redis
-#     engine: REDIS
-#     version: "7"
-#     size: db-s-1vcpu-1gb
-#     num_nodes: 1
-#     production: false
+# Managed databases configuration
+databases:
+  # MongoDB is already provided - connection via MONGODB_URI
+  # Using DigitalOcean Managed MongoDB:
+  # - Automatic backups
+  # - TLS encryption
+  # - High availability
+  
+  # Optional: Add managed Redis for better reliability
+  # - name: esg-redis
+  #   engine: REDIS
+  #   version: "7"
+  #   size: db-s-1vcpu-1gb
+  #   num_nodes: 1
 
 # Domains - configure after deployment
-# domains:
-#   - domain: your-domain.com
-#     type: PRIMARY
-#   - domain: www.your-domain.com
-#     type: ALIAS
-#     minimum_tls_version: "1.2"
+domains:
+  - domain: blueprintbuddy.io
+    type: PRIMARY
+    zone: blueprintbuddy.io
+    minimum_tls_version: "1.3"
+  
+  - domain: www.blueprintbuddy.io
+    type: ALIAS
+    zone: blueprintbuddy.io
+    minimum_tls_version: "1.3"
 
-# Alerts - TODO: Configure proper alerts after deployment
-# Note: CPU_UTILIZATION and MEM_UTILIZATION are not supported at app level
+# Alerts - configure proper alerts after deployment
+# Note: These alerts work at the service level
 # alerts:
-#   - rule: CPU_UTILIZATION
-#     value: 80
-#     operator: GREATER_THAN
-#     window: FIVE_MINUTES
+#   - rule: DEPLOYMENT_FAILED
 #     disabled: false
 #   
-#   - rule: MEM_UTILIZATION
-#     value: 80
-#     operator: GREATER_THAN
-#     window: FIVE_MINUTES
+#   - rule: DEPLOYMENT_LIVE
+#     disabled: false
+#   
+#   - rule: DOMAIN_FAILED
 #     disabled: false 

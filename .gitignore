@@ -112,4 +112,30 @@ secrets/
 # CI/CD
 trivy-results.sarif
 bandit-report.json
-k6-results/ 
+k6-results/
+
+# Database files - should never be committed
+*.db
+*.sqlite
+*.sqlite3
+esg_data.db
+metrics_platform.db
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore virtual environments
+venv/
+env/
+ENV/ 

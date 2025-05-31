@@ -1,6 +1,0 @@
-Collecting click-didyoumean
-  Using cached click_didyoumean-0.3.1-py3-none-any.whl.metadata (3.9 kB)
-Requirement already satisfied: click>=7 in /opt/anaconda3/lib/python3.12/site-packages (from click-didyoumean) (8.1.7)
-Using cached click_didyoumean-0.3.1-py3-none-any.whl (3.6 kB)
-Installing collected packages: click-didyoumean
-Successfully installed click-didyoumean-0.3.1

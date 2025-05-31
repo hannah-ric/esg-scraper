@@ -1,4 +1,4 @@
-import database_schema
+# import database_schema  # Removed - using MongoDB
 from esg_frameworks import ESGFrameworkManager, Framework, DisclosureRequirement
 import os
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
@@ -16,7 +16,6 @@ import httpx
 from bs4 import BeautifulSoup
 import yake
 # from transformers import pipeline  # Disabled for memory constraints
-import sqlite3
 import stripe
 import numpy as np
 from urllib.parse import urlparse
@@ -27,6 +26,8 @@ import sys
 from pydantic import validator
 from prometheus_client import Counter, Histogram, Gauge, generate_latest
 from fastapi.middleware.cors import CORSMiddleware
+from metrics_standardizer import MetricStandardizer
+import ssl
 
 # Optional import for trafilatura
 try:
@@ -43,6 +44,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import ESG framework modules
+from esg_frameworks import ESGFrameworkManager, Framework, DisclosureRequirement
+
+# MongoDB manager
+from mongodb_manager import get_mongodb_manager
 
 # Configure structured logging
 logging.basicConfig(
@@ -63,12 +68,28 @@ if not JWT_SECRET:
     raise ValueError("JWT_SECRET must be set in environment variables")
 
 FREE_TIER_CREDITS = int(os.getenv("FREE_TIER_CREDITS", "100"))
-DATABASE_PATH = os.getenv("DATABASE_PATH", "esg_data.db")
+# DATABASE_PATH removed - using MongoDB
+
+# CORS configuration
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 
 # Initialize services
 app = FastAPI(title="ESG Intelligence API", version="1.0.0")
 security = HTTPBearer()
-redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+
+# Initialize Redis with SSL support for managed Redis
+if REDIS_URL.startswith('rediss://'):
+    # Managed Redis with SSL
+    redis_client = redis.from_url(
+        REDIS_URL,
+        decode_responses=True,
+        ssl_cert_reqs=ssl.CERT_REQUIRED,
+        ssl_ca_certs=ssl.get_default_verify_paths().cafile
+    )
+else:
+    # Local Redis without SSL
+    redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+
 stripe.api_key = STRIPE_KEY
 
 # Load ML model once (disabled for memory constraints)
@@ -500,6 +521,7 @@ class EnhancedESGEngine(LeanESGEngine):
         super().__init__()
         self.framework_manager = ESGFrameworkManager()
         self.enhanced_keyword_scorer = EnhancedKeywordScorer()
+        self.metrics_standardizer = MetricStandardizer()
 
     async def analyze(
         self,
@@ -601,8 +623,10 @@ class EnhancedESGEngine(LeanESGEngine):
                                 "framework": framework.value,
                             }
                         )
-
-        return all_metrics
+        
+        # Standardize metrics before returning
+        standardized_metrics = self.metrics_standardizer.standardize_metrics(all_metrics)
+        return standardized_metrics
 
     def _calculate_coverage(
         self, framework_results: Dict[str, Any]
@@ -1012,20 +1036,20 @@ class UsageTracker:
 
     async def get_user_limit(self, user_id: str) -> int:
         """Get user's credit limit based on subscription"""
-        sub_key = f"subscription:{user_id}"
-        subscription = redis_client.hgetall(sub_key)
-
-        if not subscription:
+        # Get user from MongoDB
+        user = await db_manager.get_user(user_id)
+        
+        if not user:
             return FREE_TIER_CREDITS
-
+        
         tier_limits = {
             "free": 100,
             "starter": 1000,
             "growth": 5000,
             "enterprise": 50000,
         }
-
-        return tier_limits.get(subscription.get("tier", "free"), FREE_TIER_CREDITS)
+        
+        return tier_limits.get(user.get("tier", "free"), FREE_TIER_CREDITS)
 
 
 # --- AUTH ---
@@ -1055,29 +1079,21 @@ async def register(registration: UserRegistration):
     """Register new user with free tier"""
     user_id = hashlib.md5(registration.email.encode()).hexdigest()
 
-    # Check if exists
-    if redis_client.exists(f"user:{user_id}"):
-        raise HTTPException(status_code=400, detail="User already exists")
-
-    # Create user
-    redis_client.hset(
-        f"user:{user_id}",
-        mapping={
-            "email": registration.email,
-            "created": datetime.utcnow().isoformat(),
-            "tier": "free",
-        },
-    )
-
-    # Set subscription
-    redis_client.hset(
-        f"subscription:{user_id}",
-        mapping={"tier": "free", "credits": FREE_TIER_CREDITS},
-    )
-
-    token = create_token(user_id)
-
-    return {"token": token, "tier": "free", "credits": FREE_TIER_CREDITS}
+    try:
+        # Create user in MongoDB
+        user = await db_manager.create_user(registration.email, "free")
+        
+        # Generate token
+        token = create_token(user_id)
+        
+        return {
+            "token": token, 
+            "tier": user["tier"], 
+            "credits": user["credits"]
+        }
+    except Exception as e:
+        logger.error(f"Registration error: {e}")
+        raise HTTPException(status_code=500, detail="Registration failed")
 
 
 @app.post("/analyze", response_model=EnhancedAnalysisResponse)
@@ -1158,23 +1174,49 @@ async def compare_companies(
         if cached:
             results[company] = json.loads(cached)
         else:
-            # Mock data for demo - in production, pull from database
-            results[company] = {
-                "scores": {
-                    "environmental": np.random.randint(40, 90),
-                    "social": np.random.randint(40, 90),
-                    "governance": np.random.randint(40, 90),
-                    "overall": np.random.randint(40, 90),
-                },
-                "trend": np.random.choice(["improving", "stable", "declining"]),
-            }
+            # Get latest analysis from database
+            analyses = await db_manager.get_user_analyses(
+                user_id, limit=1, company_name=company
+            )
+            
+            if analyses:
+                latest = analyses[0]
+                results[company] = {
+                    "scores": {
+                        "environmental": latest.get("scores", {}).get("environmental", 0),
+                        "social": latest.get("scores", {}).get("social", 0),
+                        "governance": latest.get("scores", {}).get("governance", 0),
+                        "overall": latest.get("scores", {}).get("overall", 0),
+                    },
+                    "trend": "stable",  # Would calculate from history
+                    "last_updated": latest.get("created_at", "").isoformat() if latest.get("created_at") else None
+                }
+            else:
+                # No data found for this company
+                results[company] = {
+                    "scores": None,
+                    "trend": None,
+                    "message": "No analysis data available for this company"
+                }
+                continue
 
             # Cache for 1 hour
             redis_client.setex(cache_key, 3600, json.dumps(results[company]))
 
+    # Get industry benchmarks from database
+    benchmark_data = await db_manager.get_benchmark_data("Technology", "CSRD")
+    if benchmark_data:
+        benchmark = {
+            "environmental": benchmark_data[0].get("percentile_50", 65),
+            "social": benchmark_data[0].get("percentile_50", 70),
+            "governance": benchmark_data[0].get("percentile_50", 72),
+        }
+    else:
+        benchmark = {"environmental": 65, "social": 70, "governance": 72}
+
     return {
         "companies": results,
-        "benchmark": {"environmental": 65, "social": 70, "governance": 72},
+        "benchmark": benchmark,
     }
 
 
@@ -1238,9 +1280,14 @@ async def subscribe(request: SubscriptionRequest, user_id: str = Depends(verify_
 
     # Process payment (Stripe)
     try:
+        # Get user email from MongoDB
+        user = await db_manager.get_user(user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
         # Create Stripe subscription
         customer = stripe.Customer.create(
-            email=redis_client.hget(f"user:{user_id}", "email"),
+            email=user["email"],
             payment_method=request.payment_method,
             invoice_settings={"default_payment_method": request.payment_method},
         )
@@ -1251,19 +1298,19 @@ async def subscribe(request: SubscriptionRequest, user_id: str = Depends(verify_
             expand=["latest_invoice.payment_intent"],
         )
 
-        # Update user subscription
-        redis_client.hset(
-            f"subscription:{user_id}",
-            mapping={
-                "tier": request.tier,
-                "credits": tier_info["credits"],
-                "stripe_customer_id": customer.id,
-                "stripe_subscription_id": subscription.id,
-                "updated": datetime.utcnow().isoformat(),
-            },
+        # Update user subscription in MongoDB
+        success = await db_manager.update_user_subscription(
+            user_id,
+            request.tier,
+            tier_info["credits"],
+            customer.id,
+            subscription.id
         )
 
-        return {"success": True, "tier": request.tier, "credits": tier_info["credits"]}
+        if success:
+            return {"success": True, "tier": request.tier, "credits": tier_info["credits"]}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to update subscription")
 
     except Exception as e:
         logger.error(f"Subscription error for user {user_id}: {str(e)}")
@@ -1273,11 +1320,33 @@ async def subscribe(request: SubscriptionRequest, user_id: str = Depends(verify_
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
-        "version": "1.0.0",
-    }
+    try:
+        # Check MongoDB connection
+        mongo_health = await db_manager.health_check()
+        
+        # Check Redis connection
+        redis_status = "healthy"
+        try:
+            redis_client.ping()
+        except Exception as e:
+            redis_status = f"unhealthy: {str(e)}"
+        
+        return {
+            "status": "healthy" if mongo_health["status"] == "healthy" else "degraded",
+            "timestamp": datetime.utcnow().isoformat(),
+            "version": "1.0.0",
+            "services": {
+                "mongodb": mongo_health,
+                "redis": redis_status
+            }
+        }
+    except Exception as e:
+        logger.error(f"Health check error: {e}")
+        return {
+            "status": "unhealthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "error": str(e)
+        }
 
 
 # New framework-specific endpoints
@@ -1325,9 +1394,9 @@ async def get_company_esg_history(
 
 
 @app.get("/analysis/{analysis_id}/gaps")
-async def get_analysis_gaps(analysis_id: int, user_id: str = Depends(verify_token)):
+async def get_analysis_gaps(analysis_id: str, user_id: str = Depends(verify_token)):
     """Get detailed gap analysis for a specific analysis"""
-    gaps = await db_manager.get_framework_gaps(analysis_id)
+    gaps = await db_manager.get_framework_gaps(analysis_id, user_id)
 
     if not gaps:
         raise HTTPException(
@@ -1372,40 +1441,88 @@ async def benchmark_companies(
     results = {}
     for company in companies:
         # Get latest analysis for each company
-        # In production, this would query the database
-        # For now, return mock data
-        results[company] = {
-            "scores": {
-                "environmental": np.random.randint(40, 90),
-                "social": np.random.randint(40, 90),
-                "governance": np.random.randint(40, 90),
-                "overall": np.random.randint(40, 90),
-            },
-            "framework_compliance": {
-                framework: {
-                    "coverage": np.random.randint(30, 95),
-                    "mandatory_met": np.random.randint(5, 15),
-                }
-                for framework in frameworks
-            },
+        analyses = await db_manager.get_user_analyses(
+            user_id, limit=1, company_name=company
+        )
+        
+        if analyses and analyses[0].get("framework_coverage"):
+            latest = analyses[0]
+            framework_coverage = latest.get("framework_coverage", {})
+            
+            results[company] = {
+                "scores": {
+                    "environmental": latest.get("scores", {}).get("environmental", 0),
+                    "social": latest.get("scores", {}).get("social", 0),
+                    "governance": latest.get("scores", {}).get("governance", 0),
+                    "overall": latest.get("scores", {}).get("overall", 0),
+                },
+                "framework_compliance": {}
+            }
+            
+            # Add framework compliance data
+            for framework in frameworks:
+                if framework in framework_coverage:
+                    coverage_data = framework_coverage[framework]
+                    results[company]["framework_compliance"][framework] = {
+                        "coverage": coverage_data.get("coverage_percentage", 0),
+                        "mandatory_met": coverage_data.get("mandatory_met", 0),
+                        "mandatory_total": coverage_data.get("mandatory_total", 0),
+                    }
+                else:
+                    results[company]["framework_compliance"][framework] = {
+                        "coverage": 0,
+                        "mandatory_met": 0,
+                        "mandatory_total": 0,
+                    }
+        else:
+            # No framework data available
+            results[company] = {
+                "scores": {
+                    "environmental": 0,
+                    "social": 0,
+                    "governance": 0,
+                    "overall": 0,
+                },
+                "framework_compliance": {
+                    framework: {
+                        "coverage": 0,
+                        "mandatory_met": 0,
+                        "mandatory_total": 0,
+                    }
+                    for framework in frameworks
+                },
+                "message": "No framework analysis available"
+            }
+
+    # Calculate averages from actual data
+    companies_with_data = [c for c in results.values() if c["scores"]["overall"] > 0]
+    
+    if companies_with_data:
+        avg_scores = {
+            "environmental": sum(c["scores"]["environmental"] for c in companies_with_data) / len(companies_with_data),
+            "social": sum(c["scores"]["social"] for c in companies_with_data) / len(companies_with_data),
+            "governance": sum(c["scores"]["governance"] for c in companies_with_data) / len(companies_with_data),
+            "overall": sum(c["scores"]["overall"] for c in companies_with_data) / len(companies_with_data),
+        }
+    else:
+        avg_scores = {
+            "environmental": 0,
+            "social": 0,
+            "governance": 0,
+            "overall": 0,
         }
 
-    # Calculate averages
-    avg_scores = {
-        "environmental": np.mean(
-            [r["scores"]["environmental"] for r in results.values()]
-        ),
-        "social": np.mean([r["scores"]["social"] for r in results.values()]),
-        "governance": np.mean([r["scores"]["governance"] for r in results.values()]),
-        "overall": np.mean([r["scores"]["overall"] for r in results.values()]),
-    }
+    # Find best performer
+    best_performer = None
+    if companies_with_data:
+        best_company = max(results.items(), key=lambda x: x[1]["scores"]["overall"])
+        if best_company[1]["scores"]["overall"] > 0:
+            best_performer = best_company[0]
 
     return {
         "companies": results,
         "average_scores": avg_scores,
-        "best_performer": max(results.items(), key=lambda x: x[1]["scores"]["overall"])[
-            0
-        ],
+        "best_performer": best_performer,
         "frameworks_analyzed": frameworks,
     }
 
@@ -1474,267 +1591,8 @@ async def check_rate_limit(user_id: str, operation: str = "default"):
         )
 
 
-# --- DATABASE ---
-class DatabaseManager:
-    """Base SQLite database manager"""
-
-    def __init__(self, db_path: str = None):
-        self.db_path = db_path or DATABASE_PATH
-        self.init_db()
-
-    def init_db(self):
-        """Initialize basic database tables"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS analyses (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id TEXT NOT NULL,
-                    source_url TEXT,
-                    company_name TEXT,
-                    environmental_score REAL,
-                    social_score REAL,
-                    governance_score REAL,
-                    overall_score REAL,
-                    keywords TEXT,
-                    insights TEXT,
-                    analysis_type TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """
-            )
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_user_id ON analyses(user_id)")
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_company_name ON analyses(company_name)"
-            )
-
-
-class EnhancedDatabaseManager(DatabaseManager):
-    """Enhanced SQLite database manager with framework compliance support"""
-
-    def __init__(self, db_path: str = None):
-        self.db_path = db_path or DATABASE_PATH
-        self.init_db()
-
-    def init_db(self):
-        """Initialize enhanced database tables"""
-        with sqlite3.connect(self.db_path) as conn:
-            # Execute the enhanced schema
-            conn.executescript(database_schema.ENHANCED_SCHEMA)
-
-    async def save_analysis(
-        self,
-        user_id: str,
-        source: str,
-        result: Dict[str, Any],
-        industry_sector: str = None,
-        reporting_period: str = None,
-    ):
-        """Save enhanced analysis result to database"""
-        with sqlite3.connect(self.db_path) as conn:
-            # Save main analysis
-            cursor = conn.execute(
-                """
-                INSERT INTO analyses (
-                    user_id, source_url, company_name,
-                    environmental_score, social_score, governance_score, overall_score,
-                    keywords, insights, analysis_type,
-                    industry_sector, reporting_period
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    user_id,
-                    source,
-                    result.get("company"),
-                    result["scores"].get("environmental", 0),
-                    result["scores"].get("social", 0),
-                    result["scores"].get("governance", 0),
-                    result["scores"].get("overall", 0),
-                    json.dumps(result.get("keywords", [])),
-                    json.dumps(result.get("insights", [])),
-                    result.get("analysis_type", "unknown"),
-                    industry_sector,
-                    reporting_period,
-                ),
-            )
-
-            analysis_id = cursor.lastrowid
-
-            # Save framework compliance data
-            if result.get("framework_coverage"):
-                for framework_name, coverage in result["framework_coverage"].items():
-                    conn.execute(
-                        """
-                        INSERT INTO framework_compliance (
-                            analysis_id, framework, coverage_percentage,
-                            requirements_found, requirements_total,
-                            mandatory_met, mandatory_total
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """,
-                        (
-                            analysis_id,
-                            framework_name,
-                            coverage["coverage_percentage"],
-                            coverage["requirements_found"],
-                            coverage["requirements_total"],
-                            coverage["mandatory_met"],
-                            coverage["mandatory_total"],
-                        ),
-                    )
-
-            # Save requirement findings
-            if result.get("requirement_findings"):
-                for finding in result["requirement_findings"]:
-                    conn.execute(
-                        """
-                        INSERT INTO requirement_findings (
-                            analysis_id, framework, requirement_id,
-                            category, subcategory, description,
-                            found, confidence_score, extracted_text
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                        (
-                            analysis_id,
-                            finding["framework"],
-                            finding["requirement_id"],
-                            finding["category"],
-                            finding["subcategory"],
-                            finding["description"],
-                            finding["found"],
-                            finding["confidence"],
-                            json.dumps(finding.get("keywords_matched", [])),
-                        ),
-                    )
-
-            # Save extracted metrics
-            if result.get("extracted_metrics"):
-                for metric in result["extracted_metrics"]:
-                    conn.execute(
-                        """
-                        INSERT INTO extracted_metrics (
-                            analysis_id, requirement_id, metric_name,
-                            metric_value, metric_unit, confidence_score
-                        ) VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                        (
-                            analysis_id,
-                            metric.get("requirement_id"),
-                            metric["metric_name"],
-                            metric["metric_value"],
-                            metric["metric_unit"],
-                            metric["confidence"],
-                        ),
-                    )
-
-            # Save gap analysis
-            if result.get("gap_analysis"):
-                for gap in result["gap_analysis"]:
-                    conn.execute(
-                        """
-                        INSERT INTO gap_analysis (
-                            analysis_id, framework, requirement_id,
-                            category, description, severity,
-                            recommendation
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """,
-                        (
-                            analysis_id,
-                            gap["framework"],
-                            gap["requirement_id"],
-                            gap["category"],
-                            gap["description"],
-                            gap["severity"],
-                            gap.get("recommendation", ""),
-                        ),
-                    )
-
-            # Update company profile if provided
-            if result.get("company") and industry_sector:
-                conn.execute(
-                    """
-                    INSERT OR REPLACE INTO company_profiles (
-                        company_name, industry_sector
-                    ) VALUES (?, ?)
-                """,
-                    (result["company"], industry_sector),
-                )
-
-            # Save historical score
-            if result.get("company"):
-                conn.execute(
-                    """
-                    INSERT INTO historical_scores (
-                        company_name, analysis_date,
-                        environmental_score, social_score,
-                        governance_score, overall_score,
-                        framework_coverage
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                    (
-                        result["company"],
-                        datetime.utcnow().date(),
-                        result["scores"].get("environmental", 0),
-                        result["scores"].get("social", 0),
-                        result["scores"].get("governance", 0),
-                        result["scores"].get("overall", 0),
-                        json.dumps(result.get("framework_coverage", {})),
-                    ),
-                )
-
-    async def get_user_analyses(self, user_id: str, limit: int = 10):
-        """Get recent analyses with framework data for a user"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.execute(
-                """
-                SELECT a.*,
-                       GROUP_CONCAT(DISTINCT fc.framework || ':' || fc.coverage_percentage) as framework_scores
-                FROM analyses a
-                LEFT JOIN framework_compliance fc ON a.id = fc.analysis_id
-                WHERE a.user_id = ?
-                GROUP BY a.id
-                ORDER BY a.created_at DESC
-                LIMIT ?
-            """,
-                (user_id, limit),
-            )
-
-            return [dict(row) for row in cursor.fetchall()]
-
-    async def get_company_history(self, company_name: str, days: int = 90):
-        """Get historical ESG scores for a company"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.execute(
-                """
-                SELECT * FROM historical_scores
-                WHERE company_name = ?
-                AND analysis_date >= date('now', '-' || ? || ' days')
-                ORDER BY analysis_date DESC
-            """,
-                (company_name, days),
-            )
-
-            return [dict(row) for row in cursor.fetchall()]
-
-    async def get_framework_gaps(self, analysis_id: int):
-        """Get gap analysis for a specific analysis"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.execute(
-                """
-                SELECT * FROM gap_analysis
-                WHERE analysis_id = ?
-                ORDER BY severity DESC, framework
-            """,
-                (analysis_id,),
-            )
-
-            return [dict(row) for row in cursor.fetchall()]
-
-
-# Initialize enhanced database
-db_manager = EnhancedDatabaseManager()
+# Initialize MongoDB database manager
+db_manager = get_mongodb_manager()
 
 
 # --- MIDDLEWARE ---
@@ -1768,7 +1626,7 @@ async def metrics():
 # After app initialization, add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1776,18 +1634,5 @@ app.add_middleware(
 
 
 if __name__ == "__main__":
-    # Initialize database on startup
-    db_manager = EnhancedDatabaseManager()
-    db_manager.init_db()
-
-    # Add CORS middleware
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],  # Configure appropriately for production
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
     # Run the application
     uvicorn.run(app, host="0.0.0.0", port=8000)

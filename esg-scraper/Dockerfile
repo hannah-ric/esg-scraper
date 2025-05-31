@@ -29,7 +29,6 @@ RUN apt-get update && apt-get install -y \
     libxslt1.1 \
     libgomp1 \
     curl \
-    redis-server \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
