@@ -10,10 +10,10 @@ from lean_esg_platform import app, create_token, EnhancedESGEngine, ESGFramework
 import os
 import pytest
 
-# Set test environment
+# Mock environment variables for testing
 os.environ["JWT_SECRET"] = "test-secret-key"
-os.environ["REDIS_URL"] = "redis://localhost:6379"
-os.environ["DATABASE_PATH"] = "test_esg_frameworks.db"
+os.environ["UPSTASH_REDIS_URL"] = "redis://localhost:6379"  # Changed from REDIS_URL
+os.environ["MONGODB_URI"] = "mongodb://localhost:27017/test_frameworks"  # Changed from DATABASE_PATH
 
 # Import after setting environment
 

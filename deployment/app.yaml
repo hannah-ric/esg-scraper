@@ -37,28 +37,44 @@ services:
         value: production
         scope: RUN_TIME
       
+      # APP URL (populated automatically by DigitalOcean)
+      - key: APP_URL
+        value: ${APP_URL}
+        scope: RUN_TIME
+      
       # SECURITY: Use GitHub Secrets for all sensitive values
       - key: JWT_SECRET
         value: ${JWT_SECRET}
         type: SECRET
         scope: RUN_TIME
       
-      # MongoDB Configuration (replaces SQLite)
+      # MongoDB Configuration
       - key: MONGODB_URI
         value: ${MONGODB_URI}
         type: SECRET
         scope: RUN_TIME
       
       - key: MONGODB_DATABASE
-        value: admin
+        value: ${MONGODB_DATABASE}
         scope: RUN_TIME
       
-      # External Redis Configuration
-      - key: REDIS_URL
-        value: ${REDIS_URL}
+      # Upstash Redis Configuration
+      - key: UPSTASH_REDIS_URL
+        value: ${UPSTASH_REDIS_URL}
         type: SECRET
         scope: RUN_TIME
       
+      - key: UPSTASH_REDIS_REST_URL
+        value: ${UPSTASH_REDIS_REST_URL}
+        type: SECRET
+        scope: RUN_TIME
+      
+      - key: UPSTASH_REDIS_REST_TOKEN
+        value: ${UPSTASH_REDIS_REST_TOKEN}
+        type: SECRET
+        scope: RUN_TIME
+      
+      # API Configuration
       - key: FREE_TIER_CREDITS
         value: "100"
         scope: RUN_TIME
@@ -77,9 +93,20 @@ services:
         type: SECRET
         scope: RUN_TIME
       
-      # Optional: Slack notifications
-      - key: SLACK_WEBHOOK_URL
-        value: ${SLACK_WEBHOOK_URL}
+      # AI API Keys (for future use)
+      - key: OPENAI_KEY
+        value: ${OPENAI_KEY}
+        type: SECRET
+        scope: RUN_TIME
+      
+      - key: ANTHROPIC_KEY
+        value: ${ANTHROPIC_KEY}
+        type: SECRET
+        scope: RUN_TIME
+      
+      # Optional: Sentry error tracking
+      - key: SENTRY_DSN
+        value: ${SENTRY_DSN}
         type: SECRET
         scope: RUN_TIME
       

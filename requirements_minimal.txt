@@ -1,0 +1,17 @@
+# Core dependencies only - for quick setup
+fastapi
+uvicorn[standard]
+httpx
+beautifulsoup4
+lxml  # Let pip choose compatible version
+redis
+motor
+pymongo
+pyjwt
+python-dotenv
+yake
+slowapi
+pandas
+numpy
+sentry-sdk[fastapi]
+psutil 

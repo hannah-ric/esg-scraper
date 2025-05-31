@@ -84,7 +84,7 @@ except ImportError:
     PSUTIL_AVAILABLE = False
 
 # Configuration
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+REDIS_URL = os.getenv("UPSTASH_REDIS_URL", "redis://localhost:6379")
 STRIPE_KEY = os.getenv("STRIPE_SECRET_KEY")
 JWT_SECRET = os.getenv("JWT_SECRET")
 SENTRY_DSN = os.getenv("SENTRY_DSN")
@@ -102,21 +102,38 @@ CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 
 # Initialize Sentry if available and configured
 if SENTRY_AVAILABLE and SENTRY_DSN:
-    sentry_sdk.init(
-        dsn=SENTRY_DSN,
-        environment=ENVIRONMENT,
-        integrations=[
-            FastApiIntegration(transaction_style="endpoint"),
-            RedisIntegration(),
-            LoggingIntegration(level=logging.INFO, event_level=logging.ERROR),
-        ],
-        traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
-        profiles_sample_rate=0.1,  # 10% profiling
-        attach_stacktrace=True,
-        send_default_pii=False,  # GDPR compliance
-        before_send=lambda event, hint: event if ENVIRONMENT != "development" else None,
-    )
-    logger.info(f"Sentry initialized for {ENVIRONMENT} environment")
+    try:
+        # Only initialize if DSN looks valid (not a placeholder)
+        if SENTRY_DSN and not any(
+            placeholder in SENTRY_DSN.lower()
+            for placeholder in ["your", "placeholder", "example", "project"]
+        ):
+            sentry_sdk.init(
+                dsn=SENTRY_DSN,
+                environment=ENVIRONMENT,
+                integrations=[
+                    FastApiIntegration(transaction_style="endpoint"),
+                    RedisIntegration(),
+                    LoggingIntegration(level=logging.INFO, event_level=logging.ERROR),
+                ],
+                traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
+                profiles_sample_rate=0.1,  # 10% profiling
+                attach_stacktrace=True,
+                send_default_pii=False,  # GDPR compliance
+                before_send=lambda event, hint: (
+                    event if ENVIRONMENT != "development" else None
+                ),
+            )
+            logger.info(f"Sentry initialized for {ENVIRONMENT} environment")
+        else:
+            logger.warning(
+                "Sentry DSN not configured properly - skipping initialization"
+            )
+    except Exception as e:
+        logger.warning(f"Failed to initialize Sentry: {e}")
+        # Continue without Sentry
+else:
+    logger.info("Sentry not available or not configured")
 
 # Initialize services
 app = FastAPI(title="ESG Intelligence API", version="1.0.0")
@@ -202,7 +219,7 @@ limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["100 per hour"],  # Default for anonymous users
     storage_uri=REDIS_URL,
-    strategy="fixed-window-elastic-expiry",
+    strategy="fixed-window",  # Changed from "fixed-window-elastic-expiry" to valid strategy
 )
 
 # Define tier-specific rate limits

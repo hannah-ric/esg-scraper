@@ -112,7 +112,7 @@ def main():
 
     # Test MongoDB manager
     try:
-
+        __import__("mongodb_manager")
         print("✅ MongoDB Manager module loaded")
     except Exception as e:
         print(f"⚠️  MongoDB Manager failed to import: {e}")
@@ -127,4 +127,4 @@ def main():
 
 if __name__ == "__main__":
     success = main()
-    sys.exit(0 if success else 1)
+    sys.exit(0 if success else 1) 

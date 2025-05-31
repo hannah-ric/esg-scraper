@@ -13,8 +13,8 @@ import requests
 
 # Set test environment
 os.environ["JWT_SECRET"] = "test-secret-key"
-os.environ["REDIS_URL"] = "redis://localhost:6379"
-os.environ["DATABASE_PATH"] = "test_esg.db"
+os.environ["UPSTASH_REDIS_URL"] = "redis://localhost:6379"
+os.environ["MONGODB_URI"] = "mongodb://localhost:27017/test_esg"
 
 # Configuration
 BASE_URL = "http://localhost:5000"

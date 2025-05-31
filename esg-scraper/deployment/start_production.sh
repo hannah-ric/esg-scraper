@@ -17,8 +17,8 @@ if [ -z "$JWT_SECRET" ]; then
     exit 1
 fi
 
-if [ -z "$REDIS_URL" ]; then
-    echo "❌ REDIS_URL not set!"
+if [ -z "$UPSTASH_REDIS_URL" ]; then
+    echo "❌ UPSTASH_REDIS_URL not set!"
     exit 1
 fi
 
@@ -68,12 +68,12 @@ except Exception as e:
 export JWT_SECRET=${JWT_SECRET}
 export MONGODB_URI=${MONGODB_URI}
 export MONGODB_DATABASE=${MONGODB_DATABASE:-"admin"}
-export REDIS_URL=${REDIS_URL}
+export UPSTASH_REDIS_URL=${UPSTASH_REDIS_URL}
 export FREE_TIER_CREDITS=${FREE_TIER_CREDITS:-"100"}
 
 echo "🌐 Starting ESG Scraper API server..."
 echo "   MongoDB: Connected to managed cluster"
-echo "   Redis: $REDIS_URL"
+echo "   Redis: Using Upstash Redis"
 echo "   Port: 8000"
 echo "   Workers: ${WORKERS:-1}"
 
