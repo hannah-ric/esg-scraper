@@ -1,10 +1,14 @@
-# Multi-stage build for optimized image
-FROM python:3.11-slim as builder
+# Multi-stage build for optimized production image
+FROM python:3.12-slim as builder
 
-# Install build dependencies
+# Install build dependencies for lxml and other packages
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
+    libxml2-dev \
+    libxslt-dev \
+    libssl-dev \
+    libffi-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -17,12 +21,15 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Production stage
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
+    libxml2 \
+    libxslt1.1 \
     libgomp1 \
     curl \
+    redis-server \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
@@ -37,9 +44,18 @@ COPY --from=builder /root/.local /home/appuser/.local
 # Copy application code
 COPY --chown=appuser:appuser . .
 
+# Create necessary directories
+RUN mkdir -p logs data models && chown -R appuser:appuser logs data models
+
 # Set Python path
 ENV PATH=/home/appuser/.local/bin:$PATH
 ENV PYTHONPATH=/app
+
+# Set production environment variables
+ENV ENVIRONMENT=production
+ENV LOG_LEVEL=INFO
+ENV DATABASE_PATH=/app/data/esg_data.db
+ENV REDIS_URL=redis://localhost:6379
 
 # Switch to non-root user
 USER appuser
@@ -48,14 +64,14 @@ USER appuser
 EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Set default environment variables
-ENV PORT=8000
-ENV ENV=production
-ENV ENABLE_BERT=true
-ENV ENABLE_METRICS=true
+# Copy startup script
+COPY --chown=appuser:appuser deployment/start_production.sh /app/start_production.sh
+USER root
+RUN chmod +x /app/start_production.sh
+USER appuser
 
 # Run the application
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"] 
+CMD ["/app/start_production.sh"] 

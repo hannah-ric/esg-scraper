@@ -1,4 +1,4 @@
-name: Deploy to DigitalOcean
+name: Deploy ESG Scraper to DigitalOcean
 
 on:
   push:
@@ -8,48 +8,53 @@ on:
 
 env:
   REGISTRY: registry.digitalocean.com
-  IMAGE_NAME: esg-analyzer
+  IMAGE_NAME: esg-scraper
 
 jobs:
   test:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.12'
       
       - name: Cache dependencies
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
       
       - name: Install dependencies
         run: |
-          cd esg-scraper
           python -m pip install --upgrade pip
-          pip install -r requirements_lean.txt
-          pip install pytest pytest-asyncio
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio flake8 black
       
-      - name: Run tests
+      - name: Check code formatting
         run: |
-          cd esg-scraper
+          black --check . --exclude="venv|__pycache__|.git"
+      
+      - name: Run linting
+        run: |
+          flake8 . --max-line-length=120 --exclude=venv,__pycache__,.git,logs,data,models
+      
+      - name: Run health check
+        run: |
+          python health_check.py
+      
+      - name: Run framework tests
+        run: |
+          pytest test_framework_compliance.py -v
+      
+      - name: Test API endpoints
+        run: |
           pytest test_esg_service.py -v
-      
-      - name: Check code quality
-        run: |
-          cd esg-scraper
-          pip install flake8 black
-          # Check formatting
-          black --check .
-          # Check linting
-          flake8 . --max-line-length=120 --exclude=venv,__pycache__
 
   build-and-push:
     needs: test
@@ -57,7 +62,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
@@ -66,9 +71,8 @@ jobs:
       
       - name: Build container image
         run: |
-          cd esg-scraper
-          docker build -t ${{ env.REGISTRY }}/${{ secrets.DO_REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:latest -f Dockerfile.bert .
-          docker build -t ${{ env.REGISTRY }}/${{ secrets.DO_REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} -f Dockerfile.bert .
+          docker build -t ${{ env.REGISTRY }}/${{ secrets.DO_REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:latest .
+          docker build -t ${{ env.REGISTRY }}/${{ secrets.DO_REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} .
       
       - name: Log in to DigitalOcean Container Registry
         run: doctl registry login --expiry-seconds 1200
@@ -78,76 +82,85 @@ jobs:
           docker push ${{ env.REGISTRY }}/${{ secrets.DO_REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:latest
           docker push ${{ env.REGISTRY }}/${{ secrets.DO_REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-  deploy-frontend:
+  deploy-app:
     needs: build-and-push
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
-      - name: Deploy frontend to DigitalOcean App Platform
-        uses: digitalocean/app_action@v1.1.5
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
         with:
-          app_name: esg-analyzer-frontend
-          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
-
-  deploy-backend:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Deploy backend to DigitalOcean App Platform
-        uses: digitalocean/app_action@v1.1.5
-        with:
-          app_name: esg-analyzer-backend
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
       
-      - name: Run database migrations
+      - name: Deploy to DigitalOcean App Platform
         run: |
-          # Add database migration commands here if needed
-          echo "Running database migrations..."
+          # Update app spec with new image
+          sed -i "s|image_tag_placeholder|${{ github.sha }}|g" deployment/app.yaml
+          
+          # Deploy or create app
+          if doctl apps list | grep -q "esg-scraper"; then
+            APP_ID=$(doctl apps list --format ID,Spec.Name --no-header | grep esg-scraper | awk '{print $1}')
+            doctl apps update $APP_ID --spec deployment/app.yaml
+          else
+            doctl apps create --spec deployment/app.yaml
+          fi
 
   health-check:
-    needs: [deploy-frontend, deploy-backend]
+    needs: deploy-app
     runs-on: ubuntu-latest
     
     steps:
       - name: Wait for deployment
-        run: sleep 60
+        run: sleep 120
       
-      - name: Check frontend health
+      - name: Check API health
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" https://esg-analyzer.com)
+          # Try multiple endpoints to ensure deployment worked
+          response=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.APP_URL }}/health)
           if [ $response -eq 200 ]; then
-            echo "Frontend is healthy"
+            echo "✅ API health check passed"
           else
-            echo "Frontend health check failed with status $response"
+            echo "❌ API health check failed with status $response"
             exit 1
           fi
       
-      - name: Check backend health
+      - name: Test framework endpoint
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" https://api.esg-analyzer.com/health)
-          if [ $response -eq 200 ]; then
-            echo "Backend is healthy"
+          response=$(curl -s ${{ secrets.APP_URL }}/frameworks | jq -r '.frameworks | length')
+          if [ "$response" -gt 0 ]; then
+            echo "✅ Framework endpoint working - found $response frameworks"
           else
-            echo "Backend health check failed with status $response"
+            echo "❌ Framework endpoint test failed"
             exit 1
           fi
       
-      - name: Test API endpoint
+      - name: Test analysis endpoint (basic)
         run: |
-          response=$(curl -s -X POST https://api.esg-analyzer.com/api/analyze \
+          # Register a test user and analyze simple content
+          token=$(curl -s -X POST ${{ secrets.APP_URL }}/auth/register \
             -H "Content-Type: application/json" \
-            -d '{"content": "Test ESG content", "frameworks": ["CSRD"]}' \
-            | jq -r '.scores.overall')
+            -d '{"email": "test@example.com"}' | jq -r '.token')
           
-          if [ ! -z "$response" ]; then
-            echo "API test successful, score: $response"
+          if [ "$token" != "null" ] && [ -n "$token" ]; then
+            echo "✅ User registration working"
+            
+            # Test analysis
+            score=$(curl -s -X POST ${{ secrets.APP_URL }}/analyze \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $token" \
+              -d '{"text": "Our company is committed to reducing carbon emissions by 50% by 2030.", "quick_mode": true}' \
+              | jq -r '.scores.overall')
+            
+            if [ "$score" != "null" ] && [ -n "$score" ]; then
+              echo "✅ Analysis endpoint working - score: $score"
+            else
+              echo "❌ Analysis endpoint test failed"
+              exit 1
+            fi
           else
-            echo "API test failed"
+            echo "❌ User registration test failed"
             exit 1
           fi
 
@@ -158,14 +171,14 @@ jobs:
     
     steps:
       - name: Notify deployment status
-        uses: 8398a7/action-slack@v3
         if: ${{ secrets.SLACK_WEBHOOK_URL }}
-        with:
-          status: ${{ job.status }}
-          text: |
-            ESG Analyzer Deployment ${{ job.status }}
-            Commit: ${{ github.sha }}
-            Author: ${{ github.actor }}
-            Message: ${{ github.event.head_commit.message }}
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} 
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+              -H 'Content-type: application/json' \
+              --data '{"text":"✅ ESG Scraper deployed successfully!\nCommit: ${{ github.sha }}\nAuthor: ${{ github.actor }}\nURL: ${{ secrets.APP_URL }}"}'
+          else
+            curl -X POST ${{ secrets.SLACK_WEBHOOK_URL }} \
+              -H 'Content-type: application/json' \
+              --data '{"text":"❌ ESG Scraper deployment failed!\nCommit: ${{ github.sha }}\nAuthor: ${{ github.actor }}\nCheck: https://github.com/${{ github.repository }}/actions"}'
+          fi 

@@ -1,6 +1,7 @@
 # Core Web Framework
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
+gunicorn==21.2.0  # Production WSGI server
 python-multipart==0.0.6
 
 # Database
