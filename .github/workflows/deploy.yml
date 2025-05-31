@@ -105,6 +105,8 @@ jobs:
   deploy-app:
     needs: build-and-push
     runs-on: ubuntu-latest
+    outputs:
+      app_url: ${{ steps.get_url.outputs.url }}
     
     steps:
       - uses: actions/checkout@v4
@@ -126,6 +128,16 @@ jobs:
           else
             doctl apps create --spec deployment/app.yaml
           fi
+      
+      - name: Get app URL
+        id: get_url
+        run: |
+          # Wait a bit for app creation to register
+          sleep 10
+          APP_ID=$(doctl apps list --format ID,Spec.Name --no-header | grep esg-scraper | awk '{print $1}')
+          APP_URL=$(doctl apps get $APP_ID --format LiveURL --no-header)
+          echo "App URL: $APP_URL"
+          echo "url=$APP_URL" >> $GITHUB_OUTPUT
 
   health-check:
     needs: deploy-app
@@ -138,7 +150,9 @@ jobs:
       - name: Check API health
         run: |
           # Try multiple endpoints to ensure deployment worked
-          response=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.APP_URL }}/health)
+          APP_URL="${{ needs.deploy-app.outputs.app_url }}"
+          echo "Checking health at: $APP_URL/health"
+          response=$(curl -s -o /dev/null -w "%{http_code}" $APP_URL/health)
           if [ $response -eq 200 ]; then
             echo "✅ API health check passed"
           else
@@ -148,7 +162,8 @@ jobs:
       
       - name: Test framework endpoint
         run: |
-          response=$(curl -s ${{ secrets.APP_URL }}/frameworks | jq -r '.frameworks | length')
+          APP_URL="${{ needs.deploy-app.outputs.app_url }}"
+          response=$(curl -s $APP_URL/frameworks | jq -r '.frameworks | length')
           if [ "$response" -gt 0 ]; then
             echo "✅ Framework endpoint working - found $response frameworks"
           else
@@ -158,8 +173,9 @@ jobs:
       
       - name: Test analysis endpoint (basic)
         run: |
+          APP_URL="${{ needs.deploy-app.outputs.app_url }}"
           # Register a test user and analyze simple content
-          token=$(curl -s -X POST ${{ secrets.APP_URL }}/auth/register \
+          token=$(curl -s -X POST $APP_URL/auth/register \
             -H "Content-Type: application/json" \
             -d '{"email": "test@example.com"}' | jq -r '.token')
           
@@ -167,7 +183,7 @@ jobs:
             echo "✅ User registration working"
             
             # Test analysis
-            score=$(curl -s -X POST ${{ secrets.APP_URL }}/analyze \
+            score=$(curl -s -X POST $APP_URL/analyze \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer $token" \
               -d '{"text": "Our company is committed to reducing carbon emissions by 50% by 2030.", "quick_mode": true}' \
@@ -185,7 +201,7 @@ jobs:
           fi
 
   notify:
-    needs: health-check
+    needs: [deploy-app, health-check]
     runs-on: ubuntu-latest
     if: always()
     
@@ -194,10 +210,11 @@ jobs:
         run: |
           # Only run if SLACK_WEBHOOK_URL is set in repository variables
           if [ -n "${{ vars.SLACK_WEBHOOK_URL || '' }}" ]; then
-            if [ "${{ job.status }}" = "success" ]; then
+            APP_URL="${{ needs.deploy-app.outputs.app_url }}"
+            if [ "${{ needs.health-check.result }}" = "success" ]; then
               curl -X POST ${{ vars.SLACK_WEBHOOK_URL }} \
                 -H 'Content-type: application/json' \
-                --data '{"text":"✅ ESG Scraper deployed successfully!\nCommit: ${{ github.sha }}\nAuthor: ${{ github.actor }}\nURL: ${{ secrets.APP_URL }}"}'
+                --data "{\"text\":\"✅ ESG Scraper deployed successfully!\nCommit: ${{ github.sha }}\nAuthor: ${{ github.actor }}\nURL: $APP_URL\"}"
             else
               curl -X POST ${{ vars.SLACK_WEBHOOK_URL }} \
                 -H 'Content-type: application/json' \
