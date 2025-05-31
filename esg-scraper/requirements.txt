@@ -13,10 +13,10 @@ httpx==0.25.2
 aiohttp==3.9.1
 requests>=2.28.0  # For simple scraper fallback
 beautifulsoup4==4.12.2
-lxml>=4.9.3  # Updated for better Apple Silicon compatibility
+lxml>=5.0.0  # Updated for better Apple Silicon compatibility
 pypdf2==3.0.1
 pdfplumber==0.10.3
-trafilatura==1.6.2
+trafilatura>=2.0.0
 yake==0.4.8
 
 # Trafilatura additional dependencies (auto-installed with trafilatura)
@@ -34,7 +34,7 @@ pandas==2.1.4
 numpy>=1.26.0
 scipy>=1.11.0
 pydantic==2.5.2
-python-dateutil==2.8.2
+python-dateutil>=2.9.0.post0
 
 # NLP & BERT (Optional - comment out if not using BERT)
 transformers==4.36.0
