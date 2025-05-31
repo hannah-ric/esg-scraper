@@ -117,14 +117,14 @@ jobs:
       - name: Deploy to DigitalOcean App Platform
         run: |
           # Update app spec with new image
-          sed -i "s|image_tag_placeholder|${{ github.sha }}|g" ${{ env.WORKING_DIR }}/deployment/app.yaml
+          sed -i "s|image_tag_placeholder|${{ github.sha }}|g" deployment/app.yaml
           
           # Deploy or create app
           if doctl apps list | grep -q "esg-scraper"; then
             APP_ID=$(doctl apps list --format ID,Spec.Name --no-header | grep esg-scraper | awk '{print $1}')
-            doctl apps update $APP_ID --spec ${{ env.WORKING_DIR }}/deployment/app.yaml
+            doctl apps update $APP_ID --spec deployment/app.yaml
           else
-            doctl apps create --spec ${{ env.WORKING_DIR }}/deployment/app.yaml
+            doctl apps create --spec deployment/app.yaml
           fi
 
   health-check:
