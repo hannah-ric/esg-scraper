@@ -100,16 +100,17 @@ services:
 #     type: ALIAS
 #     minimum_tls_version: "1.2"
 
-# Alerts
-alerts:
-  - rule: CPU_UTILIZATION
-    value: 80
-    operator: GREATER_THAN
-    window: FIVE_MINUTES
-    disabled: false
-  
-  - rule: MEM_UTILIZATION
-    value: 80
-    operator: GREATER_THAN
-    window: FIVE_MINUTES
-    disabled: false 
+# Alerts - TODO: Configure proper alerts after deployment
+# Note: CPU_UTILIZATION and MEM_UTILIZATION are not supported at app level
+# alerts:
+#   - rule: CPU_UTILIZATION
+#     value: 80
+#     operator: GREATER_THAN
+#     window: FIVE_MINUTES
+#     disabled: false
+#   
+#   - rule: MEM_UTILIZATION
+#     value: 80
+#     operator: GREATER_THAN
+#     window: FIVE_MINUTES
+#     disabled: false 
