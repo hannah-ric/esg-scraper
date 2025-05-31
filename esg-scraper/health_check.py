@@ -5,28 +5,31 @@ Quick health check for ESG Scraper dependencies
 import sys
 import os
 
+
 def main():
     print("🏥 ESG Scraper Health Check")
     print("=" * 40)
-    
+
     # Check Python version
     python_version = sys.version_info
-    print(f"Python Version: {python_version.major}.{python_version.minor}.{python_version.micro}")
-    
+    print(
+        f"Python Version: {python_version.major}.{python_version.minor}.{python_version.micro}"
+    )
+
     if python_version < (3, 9):
         print("❌ Python 3.9+ required")
         return False
     else:
         print("✅ Python version OK")
-    
+
     # Check critical files
     required_files = [
-        'lean_esg_platform.py',
-        'esg_frameworks.py', 
-        'database_schema.py',
-        'requirements.txt'
+        "lean_esg_platform.py",
+        "esg_frameworks.py",
+        "database_schema.py",
+        "requirements.txt",
     ]
-    
+
     missing_files = []
     for file in required_files:
         if os.path.exists(file):
@@ -34,33 +37,33 @@ def main():
         else:
             print(f"❌ {file} - Missing")
             missing_files.append(file)
-    
+
     if missing_files:
         print(f"\n⚠️  Missing files: {', '.join(missing_files)}")
         return False
-    
+
     # Test imports
     print("\n🔍 Testing imports...")
-    
+
     critical_imports = [
-        ('fastapi', 'FastAPI'),
-        ('uvicorn', 'Uvicorn'),
-        ('lxml', 'LXML'),
-        ('bs4', 'BeautifulSoup'),
-        ('redis', 'Redis'),
-        ('celery', 'Celery'),
-        ('sqlalchemy', 'SQLAlchemy'),
-        ('httpx', 'HTTPX'),
-        ('pandas', 'Pandas'),
-        ('numpy', 'NumPy')
+        ("fastapi", "FastAPI"),
+        ("uvicorn", "Uvicorn"),
+        ("lxml", "LXML"),
+        ("bs4", "BeautifulSoup"),
+        ("redis", "Redis"),
+        ("celery", "Celery"),
+        ("sqlalchemy", "SQLAlchemy"),
+        ("httpx", "HTTPX"),
+        ("pandas", "Pandas"),
+        ("numpy", "NumPy"),
     ]
-    
+
     optional_imports = [
-        ('trafilatura', 'Trafilatura'),
-        ('transformers', 'Transformers'),
-        ('prometheus_client', 'Prometheus Client')
+        ("trafilatura", "Trafilatura"),
+        ("transformers", "Transformers"),
+        ("prometheus_client", "Prometheus Client"),
     ]
-    
+
     # Check critical imports
     critical_passed = True
     for module, name in critical_imports:
@@ -70,7 +73,7 @@ def main():
         except ImportError as e:
             print(f"❌ {name} - {e}")
             critical_passed = False
-    
+
     # Check optional imports
     optional_passed = 0
     for module, name in optional_imports:
@@ -80,31 +83,33 @@ def main():
             optional_passed += 1
         except ImportError:
             print(f"⚠️  {name} (optional) - Not available")
-    
+
     if not critical_passed:
         print("\n❌ Critical import failures detected!")
         return False
-    
+
     # Test basic functionality
     try:
         from esg_frameworks import ESGFrameworkManager
+
         manager = ESGFrameworkManager()
         print("✅ ESG Framework Manager loaded")
-        
+
         # Test framework loading
         frameworks = manager.get_framework_summary()
         print(f"✅ Loaded {len(frameworks)} ESG frameworks")
-        
+
     except Exception as e:
         print(f"❌ ESG Framework Manager failed: {e}")
         return False
-    
+
     print(f"\n🎉 Health check passed!")
     print(f"📊 {len(critical_imports)} critical imports OK")
     print(f"📊 {optional_passed}/{len(optional_imports)} optional imports available")
     print("\n🚀 Ready to run ESG Scraper!")
-    
+
     return True
+
 
 if __name__ == "__main__":
     success = main()

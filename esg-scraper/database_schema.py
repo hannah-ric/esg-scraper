@@ -250,21 +250,26 @@ INSERT OR IGNORE INTO benchmark_data (industry_sector, framework, category, metr
 ('Manufacturing', 'GRI', 'Social', 'Worker Safety Score', 75.0, 85.0, 92.0, 98.0, 100);
 """
 
+
 # Additional utility functions for database operations
 def get_table_creation_statements():
     """Return individual table creation statements for programmatic use"""
     statements = []
-    
+
     # Split the schema into individual statements
-    schema_parts = ENHANCED_SCHEMA.split(';')
-    
+    schema_parts = ENHANCED_SCHEMA.split(";")
+
     for part in schema_parts:
         part = part.strip()
-        if part and (part.startswith('CREATE TABLE') or part.startswith('CREATE INDEX') or 
-                    part.startswith('CREATE TRIGGER') or part.startswith('CREATE VIEW') or 
-                    part.startswith('INSERT OR IGNORE')):
-            statements.append(part + ';')
-    
+        if part and (
+            part.startswith("CREATE TABLE")
+            or part.startswith("CREATE INDEX")
+            or part.startswith("CREATE TRIGGER")
+            or part.startswith("CREATE VIEW")
+            or part.startswith("INSERT OR IGNORE")
+        ):
+            statements.append(part + ";")
+
     return statements
 
 
@@ -358,11 +363,10 @@ MIGRATION_SCRIPTS = {
         ALTER TABLE analyses ADD COLUMN reporting_period TEXT;
         ALTER TABLE analyses ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
     """,
-    
     "v2_to_v3": """
         -- Add framework compliance and related tables
         -- (This would be the full enhanced schema for existing basic setups)
-    """
+    """,
 }
 
 
@@ -377,12 +381,16 @@ if __name__ == "__main__":
     print("Enhanced ESG Database Schema")
     print("=" * 50)
     print(ENHANCED_SCHEMA)
-    
+
     print("\nTable Creation Statements:")
     print("-" * 30)
     for i, statement in enumerate(get_table_creation_statements(), 1):
-        if statement.startswith('CREATE TABLE'):
-            table_name = statement.split('(')[0].replace('CREATE TABLE IF NOT EXISTS ', '').strip()
+        if statement.startswith("CREATE TABLE"):
+            table_name = (
+                statement.split("(")[0]
+                .replace("CREATE TABLE IF NOT EXISTS ", "")
+                .strip()
+            )
             print(f"{i}. {table_name}")
-    
-    print(f"\nTotal statements: {len(get_table_creation_statements())}") 
+
+    print(f"\nTotal statements: {len(get_table_creation_statements())}")
