@@ -1,4 +1,4 @@
-# import database_schema  # Removed - using MongoDB
+# import database_schema  # Removed - using PostgreSQL
 import os
 from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -36,8 +36,8 @@ from fastapi.responses import JSONResponse
 # Import ESG framework modules
 from esg_frameworks import ESGFrameworkManager, Framework, DisclosureRequirement
 
-# MongoDB manager
-from mongodb_manager import get_mongodb_manager
+# PostgreSQL manager
+from postgresql_manager import get_postgresql_manager
 
 # Optional import for trafilatura
 try:
@@ -84,7 +84,7 @@ except ImportError:
     PSUTIL_AVAILABLE = False
 
 # Configuration
-REDIS_URL = os.getenv("UPSTASH_REDIS_URL", "redis://localhost:6379")
+UPSTASH_REDIS_URL = os.getenv("UPSTASH_REDIS_URL", "redis://localhost:6379")
 STRIPE_KEY = os.getenv("STRIPE_SECRET_KEY")
 JWT_SECRET = os.getenv("JWT_SECRET")
 SENTRY_DSN = os.getenv("SENTRY_DSN")
@@ -95,7 +95,7 @@ if not JWT_SECRET:
     raise ValueError("JWT_SECRET must be set in environment variables")
 
 FREE_TIER_CREDITS = int(os.getenv("FREE_TIER_CREDITS", "100"))
-# DATABASE_PATH removed - using MongoDB
+# DATABASE_PATH removed - using PostgreSQL
 
 # CORS configuration
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
@@ -165,25 +165,25 @@ async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
 
 
 # Initialize Redis with SSL support for managed Redis
-if REDIS_URL.startswith("rediss://"):
+if UPSTASH_REDIS_URL.startswith("rediss://"):
     # Managed Redis with SSL
     # Check if it's Upstash (they use self-signed certs)
-    if "upstash.io" in REDIS_URL:
+    if "upstash.io" in UPSTASH_REDIS_URL:
         redis_client = redis.from_url(
-            REDIS_URL,
+            UPSTASH_REDIS_URL,
             decode_responses=True,
             ssl_cert_reqs=ssl.CERT_NONE,  # Upstash uses self-signed certs
         )
     else:
         redis_client = redis.from_url(
-            REDIS_URL,
+            UPSTASH_REDIS_URL,
             decode_responses=True,
             ssl_cert_reqs=ssl.CERT_REQUIRED,
             ssl_ca_certs=ssl.get_default_verify_paths().cafile,
         )
 else:
     # Local Redis without SSL
-    redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+    redis_client = redis.from_url(UPSTASH_REDIS_URL, decode_responses=True)
 
 stripe.api_key = STRIPE_KEY
 
@@ -218,7 +218,7 @@ def get_user_tier_from_request(request: Request) -> str:
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["100 per hour"],  # Default for anonymous users
-    storage_uri=REDIS_URL,
+    storage_uri=UPSTASH_REDIS_URL,
     strategy="fixed-window",  # Changed from "fixed-window-elastic-expiry" to valid strategy
 )
 
@@ -1203,7 +1203,7 @@ class UsageTracker:
 
     async def get_user_limit(self, user_id: str) -> int:
         """Get user's credit limit based on subscription"""
-        # Get user from MongoDB
+        # Get user from PostgreSQL
         user = await db_manager.get_user(user_id)
 
         if not user:
@@ -1247,7 +1247,7 @@ async def register(registration: UserRegistration):
     user_id = hashlib.md5(registration.email.encode()).hexdigest()
 
     try:
-        # Create user in MongoDB
+        # Create user in PostgreSQL
         user = await db_manager.create_user(registration.email, "free")
 
         # Generate token
@@ -1280,7 +1280,7 @@ async def analyze_endpoint(
 
     # Check and apply tier-specific rate limit
     try:
-        # Get user tier from database
+        # Get user tier from PostgreSQL
         user = await db_manager.get_user(user_id)
         tier = user.get("tier", "free") if user else "free"
 
@@ -1415,7 +1415,7 @@ async def compare_companies(
         if cached:
             results[company] = json.loads(cached)
         else:
-            # Get latest analysis from database
+            # Get latest analysis from PostgreSQL
             analyses = await db_manager.get_user_analyses(
                 user_id, limit=1, company_name=company
             )
@@ -1450,7 +1450,7 @@ async def compare_companies(
             # Cache for 1 hour
             redis_client.setex(cache_key, 3600, json.dumps(results[company]))
 
-    # Get industry benchmarks from database
+    # Get industry benchmarks from PostgreSQL
     benchmark_data = await db_manager.get_benchmark_data("Technology", "CSRD")
     if benchmark_data:
         benchmark = {
@@ -1537,7 +1537,7 @@ async def subscribe(request: SubscriptionRequest, user_id: str = Depends(verify_
 
     # Process payment (Stripe)
     try:
-        # Get user email from MongoDB
+        # Get user email from PostgreSQL
         user = await db_manager.get_user(user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
@@ -1555,7 +1555,7 @@ async def subscribe(request: SubscriptionRequest, user_id: str = Depends(verify_
             expand=["latest_invoice.payment_intent"],
         )
 
-        # Update user subscription in MongoDB
+        # Update user subscription in PostgreSQL
         success = await db_manager.update_user_subscription(
             user_id, request.tier, tier_info["credits"], customer.id, subscription.id
         )
@@ -1578,8 +1578,8 @@ async def subscribe(request: SubscriptionRequest, user_id: str = Depends(verify_
 async def health_check():
     """Health check endpoint"""
     try:
-        # Check MongoDB connection
-        mongo_health = await db_manager.health_check()
+        # Check PostgreSQL connection
+        postgres_health = await db_manager.health_check()
 
         # Check Redis connection
         redis_status = "healthy"
@@ -1589,10 +1589,12 @@ async def health_check():
             redis_status = f"unhealthy: {str(e)}"
 
         return {
-            "status": "healthy" if mongo_health["status"] == "healthy" else "degraded",
+            "status": (
+                "healthy" if postgres_health["status"] == "healthy" else "degraded"
+            ),
             "timestamp": datetime.utcnow().isoformat(),
             "version": "1.0.0",
-            "services": {"mongodb": mongo_health, "redis": redis_status},
+            "services": {"postgresql": postgres_health, "redis": redis_status},
         }
     except Exception as e:
         logger.error(f"Health check error: {e}")
@@ -1607,7 +1609,7 @@ async def health_check():
 async def detailed_health_check():
     """Detailed health check with system metrics"""
     checks = {
-        "mongodb": "unknown",
+        "postgresql": "unknown",
         "redis": "unknown",
         "memory": "unknown",
         "cpu": "unknown",
@@ -1616,13 +1618,13 @@ async def detailed_health_check():
 
     metrics = {}
 
-    # MongoDB check
+    # PostgreSQL check
     try:
-        mongo_health = await db_manager.health_check()
-        checks["mongodb"] = mongo_health["status"]
-        metrics["mongodb_connections"] = mongo_health.get("connections", {})
+        postgres_health = await db_manager.health_check()
+        checks["postgresql"] = postgres_health["status"]
+        metrics["postgresql_connections"] = postgres_health.get("connections", {})
     except Exception as e:
-        checks["mongodb"] = f"unhealthy: {str(e)}"
+        checks["postgresql"] = f"unhealthy: {str(e)}"
 
     # Redis check
     try:
@@ -1934,14 +1936,24 @@ async def check_rate_limit(user_id: str, operation: str = "default"):
         )
 
 
-# Initialize MongoDB database manager
-db_manager = get_mongodb_manager()
+# Initialize PostgreSQL database manager
+db_manager = get_postgresql_manager()
 
 
 # --- STARTUP EVENTS ---
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
+    # Initialize PostgreSQL connection pool
+    try:
+        await db_manager.initialize()
+        logger.info("PostgreSQL connection pool initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize PostgreSQL: {e}")
+        # In production, you might want to exit if database connection fails
+        if ENVIRONMENT == "production":
+            raise
+
     # Set Sentry context
     if SENTRY_AVAILABLE and SENTRY_DSN:
         sentry_sdk.set_tag("app.version", "1.0.0")
@@ -1956,9 +1968,18 @@ async def startup_event():
 
     # Log startup
     logger.info(f"ESG Intelligence API v1.0.0 starting in {ENVIRONMENT} mode")
-    logger.info(f"MongoDB connected: {bool(db_manager)}")
+    logger.info(f"PostgreSQL connected: {bool(db_manager)}")
     logger.info(f"Redis connected: {bool(redis_client)}")
     logger.info(f"Sentry enabled: {bool(SENTRY_AVAILABLE and SENTRY_DSN)}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    # Close PostgreSQL connection pool
+    if db_manager:
+        await db_manager.close()
+        logger.info("PostgreSQL connection pool closed")
 
 
 # --- MIDDLEWARE ---

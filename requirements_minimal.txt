@@ -5,8 +5,7 @@ httpx
 beautifulsoup4
 lxml  # Let pip choose compatible version
 redis
-motor
-pymongo
+asyncpg
 pyjwt
 python-dotenv
 yake
@@ -14,4 +13,6 @@ slowapi
 pandas
 numpy
 sentry-sdk[fastapi]
-psutil 
+psutil
+aiohttp
+trafilatura 

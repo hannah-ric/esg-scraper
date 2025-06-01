@@ -24,7 +24,7 @@ fi
 export PORT=${PORT:-8000}
 export ENABLE_BERT=${ENABLE_BERT:-true}
 export ENABLE_METRICS=${ENABLE_METRICS:-true}
-export REDIS_URL=${REDIS_URL:-redis://localhost:6379}
+export UPSTASH_REDIS_URL=${UPSTASH_REDIS_URL:-redis://localhost:6379}
 export DATABASE_URL=${DATABASE_URL:-sqlite:///./esg_data.db}
 export ENV=${ENV:-production}
 

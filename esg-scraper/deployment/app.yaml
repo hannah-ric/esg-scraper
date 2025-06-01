@@ -42,12 +42,34 @@ services:
         type: SECRET
         scope: RUN_TIME
       
-      - key: MONGODB_URI
-        value: ${MONGODB_URI}
+      # PostgreSQL Configuration
+      - key: PGPASSWORD
+        value: ${PGPASSWORD}
         type: SECRET
         scope: RUN_TIME
       
-      - key: REDIS_URL
+      - key: PGUSER
+        value: doadmin
+        scope: RUN_TIME
+      
+      - key: PGHOST
+        value: private-db-postgresql-nyc3-50809-do-user-20909316-0.l.db.ondigitalocean.com
+        scope: RUN_TIME
+      
+      - key: PGPORT
+        value: "25060"
+        scope: RUN_TIME
+      
+      - key: PGDATABASE
+        value: defaultdb
+        scope: RUN_TIME
+      
+      - key: PGSSLMODE
+        value: require
+        scope: RUN_TIME
+      
+      # Redis Configuration
+      - key: UPSTASH_REDIS_URL
         value: ${UPSTASH_REDIS_URL}
         type: SECRET
         scope: RUN_TIME

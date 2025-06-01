@@ -48,49 +48,104 @@ services:
         type: SECRET
         scope: RUN_TIME
       
-      # MongoDB Configuration
-      - key: MONGODB_URI
-        value: ${MONGODB_URI}
-        type: SECRET
-        scope: RUN_TIME
-      
-      - key: MONGODB_DATABASE
-        value: admin
-        scope: RUN_TIME
-      
-      # Upstash Redis Configuration
+      # Redis Configuration
       - key: UPSTASH_REDIS_URL
         value: ${UPSTASH_REDIS_URL}
+        scope: RUN_TIME
         type: SECRET
+      
+      # PostgreSQL Configuration
+      - key: PGPASSWORD
+        value: ${PGPASSWORD}
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: PGUSER
+        value: doadmin
         scope: RUN_TIME
       
-      - key: UPSTASH_REDIS_REST_URL
-        value: ${UPSTASH_REDIS_REST_URL}
-        type: SECRET
+      - key: PGHOST
+        value: private-db-postgresql-nyc3-50809-do-user-20909316-0.l.db.ondigitalocean.com
         scope: RUN_TIME
       
-      - key: UPSTASH_REDIS_REST_TOKEN
-        value: ${UPSTASH_REDIS_REST_TOKEN}
+      - key: PGPORT
+        value: "25060"
+        scope: RUN_TIME
+      
+      - key: PGDATABASE
+        value: defaultdb
+        scope: RUN_TIME
+      
+      - key: PGSSLMODE
+        value: require
+        scope: RUN_TIME
+      
+      # PostgreSQL Connection Pool Settings
+      - key: PG_POOL_SIZE
+        value: "50"
+        scope: RUN_TIME
+      
+      - key: PG_MIN_POOL_SIZE
+        value: "5"
+        scope: RUN_TIME
+      
+      # Rate Limiting
+      - key: RATE_LIMIT_DEFAULT
+        value: "50"
+        scope: RUN_TIME
+      
+      - key: RATE_LIMIT_WINDOW
+        value: "3600"
+        scope: RUN_TIME
+      
+      # CORS Settings
+      - key: CORS_ORIGINS
+        value: "https://blueprintbuddy.io,https://www.blueprintbuddy.io"
+        scope: RUN_TIME
+      
+      # Sentry Configuration
+      - key: SENTRY_DSN
+        value: ${SENTRY_DSN}
+        scope: RUN_TIME
         type: SECRET
+      
+      # Stripe Configuration
+      - key: STRIPE_SECRET_KEY
+        value: ${STRIPE_SECRET_KEY}
+        scope: RUN_TIME
+        type: SECRET
+      
+      - key: STRIPE_WEBHOOK_SECRET
+        value: ${STRIPE_WEBHOOK_SECRET}
+        scope: RUN_TIME
+        type: SECRET
+      
+      # JWT Algorithm Configuration
+      - key: JWT_ALGORITHM
+        value: HS256
+        scope: RUN_TIME
+      
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "1440"
+        scope: RUN_TIME
+      
+      # Application Settings
+      - key: LOG_LEVEL
+        value: INFO
+        scope: RUN_TIME
+      
+      # Feature Flags
+      - key: ENABLE_BERT
+        value: "false"
+        scope: RUN_TIME
+      
+      - key: ENABLE_ADVANCED_ANALYTICS
+        value: "true"
         scope: RUN_TIME
       
       # API Configuration
       - key: FREE_TIER_CREDITS
         value: "100"
-        scope: RUN_TIME
-      
-      - key: LOG_LEVEL
-        value: INFO
-        scope: RUN_TIME
-      
-      - key: WORKERS
-        value: "1"
-        scope: RUN_TIME
-      
-      # Stripe Configuration
-      - key: STRIPE_SECRET_KEY
-        value: ${STRIPE_SECRET_KEY}
-        type: SECRET
         scope: RUN_TIME
       
       # AI API Keys (for future use)
@@ -103,34 +158,14 @@ services:
         value: ${ANTHROPIC_KEY}
         type: SECRET
         scope: RUN_TIME
-      
-      # Optional: Sentry error tracking
-      - key: SENTRY_DSN
-        value: ${SENTRY_DSN}
-        type: SECRET
-        scope: RUN_TIME
-      
-      # Security: Allowed CORS origins
-      - key: CORS_ORIGINS
-        value: "https://blueprintbuddy.io,https://www.blueprintbuddy.io"
-        scope: RUN_TIME
-      
-      # MongoDB Connection Pool Settings
-      - key: MONGODB_POOL_SIZE
-        value: "50"
-        scope: RUN_TIME
-      
-      - key: MONGODB_MIN_POOL_SIZE
-        value: "5"
-        scope: RUN_TIME
 
 # Managed databases configuration
 databases:
-  # MongoDB is already provided - connection via MONGODB_URI
-  # Using DigitalOcean Managed MongoDB:
-  # - Automatic backups
-  # - TLS encryption
-  # - High availability
+  # PostgreSQL is already provided - connection via environment variables
+  # Using DigitalOcean Managed PostgreSQL:
+  # - Private networking enabled for security
+  # - Connection pooling configured at application level
+  # - SSL/TLS required for all connections
   
   # Optional: Add managed Redis for better reliability
   # - name: esg-redis

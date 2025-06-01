@@ -54,7 +54,7 @@ ENV PYTHONPATH=/app
 ENV ENVIRONMENT=production
 ENV LOG_LEVEL=INFO
 ENV DATABASE_PATH=/app/data/esg_data.db
-ENV UPSTASH_REDIS_URL=redis://localhost:6379
+ENV UPSTASH_UPSTASH_REDIS_URL=redis://localhost:6379
 
 # Switch to non-root user
 USER appuser

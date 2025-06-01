@@ -2,11 +2,11 @@
 
 **Production-Ready ESG Analysis Platform with Framework Compliance**
 
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-green)](https://fastapi.tiangolo.com)
-[![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-green)](https://www.mongodb.com)
-[![Redis](https://img.shields.io/badge/Redis-Upstash-red)](https://upstash.com)
-[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue)](https://www.postgresql.org)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ## 📊 Overview
 
@@ -20,7 +20,7 @@ The ESG Intelligence Platform is a production-ready API service that analyzes En
 - **Gap Analysis**: Identify missing disclosures and compliance gaps
 - **Multi-Company Comparison**: Benchmark multiple companies
 - **Tiered Rate Limiting**: Usage-based API access control
-- **Production Ready**: Deployed on DigitalOcean with MongoDB and Redis
+- **Production Ready**: Deployed on DigitalOcean with PostgreSQL and Redis
 
 ## 🚀 Quick Start
 
@@ -62,9 +62,11 @@ esg-scraper/
 ├── esg-scraper/                    # Main application directory
 │   ├── lean_esg_platform.py        # Main FastAPI application
 │   ├── esg_frameworks.py           # ESG framework definitions
-│   ├── mongodb_manager.py          # MongoDB async operations
 │   ├── metrics_standardizer.py     # Metric standardization
-│   ├── api_versioning.py           # API versioning framework
+│   ├── postgresql_manager.py       # PostgreSQL async operations
+│   ├── api_versioning.py           # API versioning middleware
+│   ├── rate_limiting.py            # Rate limiting implementation
+│   └── security_headers.py         # Security headers middleware
 │   └── requirements.txt            # Python dependencies
 ├── deployment/                     # Deployment configurations
 │   ├── app.yaml                    # DigitalOcean App Platform config
@@ -83,12 +85,16 @@ esg-scraper/
 ### Environment Variables
 
 ```bash
-# MongoDB
-MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/
-MONGODB_DATABASE=esg_platform
+# PostgreSQL
+PGPASSWORD=your-password
+PGUSER=doadmin
+PGHOST=your-postgres-host
+PGPORT=25060
+PGDATABASE=defaultdb
+PGSSLMODE=require
 
 # Redis (Upstash)
-REDIS_URL=rediss://default:password@endpoint.upstash.io:6379
+UPSTASH_UPSTASH_REDIS_URL=rediss://default:password@endpoint.upstash.io:6379
 
 # Security
 JWT_SECRET=your-secret-key
@@ -140,11 +146,11 @@ curl -X POST http://api.example.com/analyze \
 ### Production Architecture
 
 - **App Platform**: DigitalOcean (Basic plan: $5/month)
-- **Database**: MongoDB Atlas (M0 Shared: $15/month)
+- **Database**: PostgreSQL (Free tier: $0/month)
 - **Cache**: Upstash Redis (Free tier: 10k commands/day)
 - **Monitoring**: Sentry (Optional)
 
-Total cost: ~$20/month for starter setup
+Total cost: ~$5/month for starter setup
 
 ## 🔒 Security
 
@@ -202,7 +208,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - FastAPI for the excellent web framework
 - DigitalOcean for hosting infrastructure
-- MongoDB and Upstash for database services
+- PostgreSQL for database services
 
 ---
 

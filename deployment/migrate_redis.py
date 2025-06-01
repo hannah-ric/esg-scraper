@@ -106,7 +106,7 @@ class RedisMigrator:
                 "sample_keys": sample_keys[:10],
             }
 
-            logger.info(f"📊 Source Redis Analysis:")
+            logger.info("📊 Source Redis Analysis:")
             logger.info(f"   - Total keys: {analysis['total_keys']}")
             logger.info(f"   - Memory used: {analysis['memory_used_mb']:.2f} MB")
             logger.info(f"   - Key patterns: {analysis['key_patterns']}")
@@ -241,7 +241,7 @@ class RedisMigrator:
         verification["sample_verified"] = sample_verified
         verification["sample_failed"] = sample_failed
 
-        logger.info(f"✅ Verification Results:")
+        logger.info("✅ Verification Results:")
         logger.info(f"   - Source keys: {verification['source_keys']}")
         logger.info(f"   - Target keys: {verification['target_keys']}")
         logger.info(f"   - Match: {verification['match']}")
@@ -295,10 +295,10 @@ def main():
     """Main migration process"""
     # Get Redis URLs from environment or arguments
     source_url = os.getenv("REDIS_SOURCE_URL", "redis://localhost:6379")
-    target_url = os.getenv("REDIS_TARGET_URL", os.getenv("REDIS_URL"))
+    target_url = os.getenv("REDIS_TARGET_URL", os.getenv("UPSTASH_REDIS_URL"))
 
     if not target_url:
-        logger.error("❌ REDIS_TARGET_URL or REDIS_URL environment variable not set")
+        logger.error("❌ REDIS_TARGET_URL or UPSTASH_REDIS_URL environment variable not set")
         sys.exit(1)
 
     # Confirm migration
@@ -352,7 +352,7 @@ def main():
         logger.info(f"Status: {report['status']}")
         logger.info(f"Keys migrated: {stats['keys_migrated']}")
         logger.info(f"Keys failed: {stats['keys_failed']}")
-        logger.info(f"Report saved to: redis_migration_report.json")
+        logger.info("Report saved to: redis_migration_report.json")
 
         # Exit code based on status
         if report["status"] == "SUCCESS":

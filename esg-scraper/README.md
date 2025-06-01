@@ -33,7 +33,7 @@ cd esg-scraper
 2. Set environment variables:
 ```bash
 export JWT_SECRET=your-secret-key-here-change-in-production
-export REDIS_URL=redis://localhost:6379  # Optional
+export UPSTASH_REDIS_URL=redis://localhost:6379  # Optional
 ```
 
 3. Run the application:
@@ -97,7 +97,7 @@ curl -X POST http://localhost:8000/api/extract-metrics \
 | `PORT` | Application port | 8000 |
 | `ENABLE_BERT` | Enable BERT analysis | true |
 | `ENABLE_METRICS` | Enable metrics extraction | true |
-| `REDIS_URL` | Redis connection URL | redis://localhost:6379 |
+| `UPSTASH_REDIS_URL` | Redis connection URL | redis://localhost:6379 |
 | `DATABASE_URL` | Database connection URL | sqlite:///./esg_data.db |
 | `ENV` | Environment (development/production) | production |
 

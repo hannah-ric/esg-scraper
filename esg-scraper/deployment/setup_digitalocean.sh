@@ -244,7 +244,7 @@ cat > .env.example << EOF
 
 # Required
 JWT_SECRET=$JWT_SECRET
-REDIS_URL=redis://localhost:6379
+UPSTASH_REDIS_URL=redis://localhost:6379
 DATABASE_PATH=esg_data.db
 FREE_TIER_CREDITS=1000
 

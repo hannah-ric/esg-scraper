@@ -9,7 +9,7 @@
 ### GitHub Secrets Configuration
 - [ ] `JWT_SECRET` - Generated with `openssl rand -base64 32`
 - [ ] `MONGODB_URI` - External MongoDB connection string
-- [ ] `REDIS_URL` - External Redis connection (currently local)
+- [ ] `UPSTASH_REDIS_URL` - External Redis connection (currently local)
 - [ ] `STRIPE_SECRET_KEY` - Production Stripe key
 - [ ] `SLACK_WEBHOOK_URL` - Optional notifications
 - [ ] `DIGITALOCEAN_ACCESS_TOKEN` - For CI/CD

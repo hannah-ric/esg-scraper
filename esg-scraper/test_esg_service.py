@@ -11,10 +11,15 @@ from datetime import datetime
 
 import requests
 
-# Set test environment
+# Set test environment variables
+os.environ["UPSTASH_REDIS_URL"] = "redis://localhost:6379/0"
 os.environ["JWT_SECRET"] = "test-secret-key"
-os.environ["UPSTASH_REDIS_URL"] = "redis://localhost:6379"
-os.environ["MONGODB_URI"] = "mongodb://localhost:27017/test_esg"
+os.environ["ENVIRONMENT"] = "test"
+os.environ["PGPASSWORD"] = "test"
+os.environ["PGUSER"] = "test"
+os.environ["PGHOST"] = "localhost"
+os.environ["PGPORT"] = "5432"
+os.environ["PGDATABASE"] = "test_esg"
 
 # Configuration
 BASE_URL = "http://localhost:5000"

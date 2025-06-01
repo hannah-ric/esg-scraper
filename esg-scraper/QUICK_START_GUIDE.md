@@ -37,7 +37,7 @@ nano .env
 **Important settings to update:**
 ```env
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-REDIS_URL=redis://localhost:6379
+UPSTASH_REDIS_URL=redis://localhost:6379
 DATABASE_PATH=esg_data.db
 ```
 
@@ -233,7 +233,7 @@ For production use:
 
 3. **Configure Redis with Auth**:
    ```env
-   REDIS_URL=redis://username:password@redis-host:6379
+   UPSTASH_REDIS_URL=redis://username:password@redis-host:6379
    ```
 
 4. **Set Resource Limits**:

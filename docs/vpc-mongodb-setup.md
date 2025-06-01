@@ -69,7 +69,7 @@ MONGODB_DATABASE = admin
 DIGITALOCEAN_ACCESS_TOKEN = your_do_token
 DO_REGISTRY_NAME = your_registry_name
 JWT_SECRET = your_jwt_secret
-UPSTASH_REDIS_URL = your_redis_url
+UPSTASH_UPSTASH_REDIS_URL = your_UPSTASH_REDIS_URL
 STRIPE_SECRET_KEY = your_stripe_key
 ```
 

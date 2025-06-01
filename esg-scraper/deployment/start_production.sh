@@ -7,8 +7,8 @@ echo "🚀 Starting ESG Scraper in production mode..."
 
 # Verify environment variables
 echo "🔍 Checking environment configuration..."
-if [ -z "$MONGODB_URI" ]; then
-    echo "❌ MONGODB_URI not set!"
+if [ -z "$PGPASSWORD" ]; then
+    echo "❌ PGPASSWORD not set!"
     exit 1
 fi
 
@@ -24,26 +24,27 @@ fi
 
 echo "✅ Environment variables configured"
 
-# Test MongoDB connection
-echo "🗄️  Testing MongoDB connection..."
+# Test PostgreSQL connection
+echo "🗄️  Testing PostgreSQL connection..."
 python -c "
 import os
 import asyncio
-from mongodb_manager import get_mongodb_manager
+from postgresql_manager import get_postgresql_manager
 
 async def test_connection():
     try:
-        manager = get_mongodb_manager()
+        manager = get_postgresql_manager()
+        await manager.initialize()
         health = await manager.health_check()
         if health['status'] == 'healthy':
-            print('✅ MongoDB connection successful')
+            print('✅ PostgreSQL connection successful')
             print(f'   Version: {health.get(\"version\")}')
         else:
-            print('❌ MongoDB connection failed')
+            print('❌ PostgreSQL connection failed')
             return False
         return True
     except Exception as e:
-        print(f'❌ MongoDB connection error: {e}')
+        print(f'❌ PostgreSQL connection error: {e}')
         return False
 
 success = asyncio.run(test_connection())
@@ -64,16 +65,20 @@ except Exception as e:
     exit(1)
 "
 
-# Set production defaults
-export JWT_SECRET=${JWT_SECRET}
-export MONGODB_URI=${MONGODB_URI}
-export MONGODB_DATABASE=${MONGODB_DATABASE:-"admin"}
+# Set production environment
+export ENVIRONMENT="production"
+export PGPASSWORD=${PGPASSWORD}
+export PGUSER=${PGUSER:-"doadmin"}
+export PGHOST=${PGHOST}
+export PGPORT=${PGPORT:-"25060"}
+export PGDATABASE=${PGDATABASE:-"defaultdb"}
+export PGSSLMODE=${PGSSLMODE:-"require"}
 export UPSTASH_REDIS_URL=${UPSTASH_REDIS_URL}
-export FREE_TIER_CREDITS=${FREE_TIER_CREDITS:-"100"}
+export JWT_SECRET=${JWT_SECRET}
 
 echo "🌐 Starting ESG Scraper API server..."
-echo "   MongoDB: Connected to managed cluster"
-echo "   Redis: Using Upstash Redis"
+echo "   PostgreSQL: Connected to managed cluster"
+echo "   Redis: Connected to managed instance"
 echo "   Port: 8000"
 echo "   Workers: ${WORKERS:-1}"
 

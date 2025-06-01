@@ -135,7 +135,7 @@
    ```bash
    doctl databases create esg-redis --engine redis --version 7
    ```
-   - Update REDIS_URL in GitHub Secrets
+   - Update UPSTASH_REDIS_URL in GitHub Secrets
    - Add SSL support
    - Configure persistence
 

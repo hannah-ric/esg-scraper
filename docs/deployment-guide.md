@@ -54,7 +54,7 @@ This guide covers deployment to DigitalOcean App Platform with MongoDB Atlas and
 5. Configure environment variables:
    ```
    MONGODB_URI=mongodb+srv://...
-   REDIS_URL=rediss://...
+   UPSTASH_REDIS_URL=rediss://...
    JWT_SECRET=your-secret-key
    CORS_ORIGINS=https://yourdomain.com
    ENVIRONMENT=production
@@ -109,7 +109,7 @@ Required GitHub Secrets:
 |----------|-------------|---------|
 | `MONGODB_URI` | MongoDB connection string | `mongodb+srv://user:pass@cluster.mongodb.net/` |
 | `MONGODB_DATABASE` | Database name | `esg_platform` |
-| `REDIS_URL` | Redis connection URL | `rediss://default:pass@endpoint.upstash.io:6379` |
+| `UPSTASH_REDIS_URL` | Redis connection URL | `rediss://default:pass@endpoint.upstash.io:6379` |
 | `JWT_SECRET` | JWT signing secret | `your-random-secret` |
 | `CORS_ORIGINS` | Allowed CORS origins | `https://app.com,http://localhost:3000` |
 | `SENTRY_DSN` | Sentry error tracking | `https://key@sentry.io/project` |

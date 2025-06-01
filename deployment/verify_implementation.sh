@@ -114,14 +114,20 @@ else
     check_item "System monitoring (psutil)" "FAIL" "psutil not in requirements.txt"
 fi
 
-echo "5. MongoDB Configuration"
-echo "-----------------------"
+echo "5. PostgreSQL Configuration"
+echo "----------------------"
 
-# Check if MONGODB_URI is in app.yaml
-if grep -q "MONGODB_URI" esg-scraper/deployment/app.yaml; then
-    check_item "MONGODB_URI in app.yaml" "PASS"
+# Check if PostgreSQL environment variables are in app.yaml
+if grep -q "PGPASSWORD" esg-scraper/deployment/app.yaml; then
+    check_item "PGPASSWORD in app.yaml" "PASS"
 else
-    check_item "MONGODB_URI in app.yaml" "FAIL" "MongoDB connection not configured"
+    check_item "PGPASSWORD in app.yaml" "FAIL" "PostgreSQL password not configured"
+fi
+
+if grep -q "PGHOST" esg-scraper/deployment/app.yaml; then
+    check_item "PGHOST in app.yaml" "PASS"
+else
+    check_item "PGHOST in app.yaml" "FAIL" "PostgreSQL host not configured"
 fi
 
 echo "6. Redis Configuration"
@@ -134,11 +140,11 @@ else
     check_item "Redis SSL support" "FAIL" "SSL support not implemented"
 fi
 
-# Check if REDIS_URL uses secret
-if grep -A2 "key: REDIS_URL" esg-scraper/deployment/app.yaml | grep -q "type: SECRET"; then
-    check_item "REDIS_URL as secret" "PASS"
+# Check if UPSTASH_REDIS_URL uses secret
+if grep -A2 "key: UPSTASH_UPSTASH_REDIS_URL" esg-scraper/deployment/app.yaml | grep -q "type: SECRET"; then
+    check_item "UPSTASH_UPSTASH_REDIS_URL as secret" "PASS"
 else
-    check_item "REDIS_URL as secret" "WARN" "Should be configured as SECRET"
+    check_item "UPSTASH_UPSTASH_REDIS_URL as secret" "WARN" "Should be configured as SECRET"
 fi
 
 echo "7. Error Handling"
@@ -151,15 +157,8 @@ else
     check_item "Sentry error context" "FAIL" "No Sentry context found"
 fi
 
-echo "8. Backup Verification"
+echo "8. Verification Scripts"
 echo "---------------------"
-
-# Check if backup verification script exists
-if [ -f "deployment/verify_mongodb_backup.py" ]; then
-    check_item "MongoDB backup verification script" "PASS"
-else
-    check_item "MongoDB backup verification script" "FAIL" "Script not found"
-fi
 
 # Check if Redis migration script exists
 if [ -f "deployment/migrate_redis.py" ]; then
@@ -215,8 +214,7 @@ else
 fi
 
 echo ""
-echo "To run deployment readiness check:"
-echo "  python deployment/verify_mongodb_backup.py"
-echo "  ./deployment/migrate_redis.py"
+echo "To run specific verifications:"
+echo "  python deployment/migrate_redis.py"
 
 exit $ISSUES_FOUND 

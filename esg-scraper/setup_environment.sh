@@ -177,7 +177,7 @@ if [ ! -f .env ]; then
     cat > .env << EOF
 # ESG Scraper Configuration
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-REDIS_URL=redis://localhost:6379
+UPSTASH_REDIS_URL=redis://localhost:6379
 DATABASE_PATH=esg_data.db
 STRIPE_SECRET_KEY=sk_test_your_stripe_key_here
 FREE_TIER_CREDITS=100

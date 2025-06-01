@@ -26,7 +26,7 @@ def main():
     required_files = [
         "lean_esg_platform.py",
         "esg_frameworks.py",
-        "mongodb_manager.py",
+        "postgresql_manager.py",
         "metrics_standardizer.py",
         "api_versioning.py",
         "requirements.txt",
@@ -54,7 +54,7 @@ def main():
         ("bs4", "BeautifulSoup"),
         ("redis", "Redis"),
         ("celery", "Celery"),
-        ("motor", "Motor (MongoDB)"),
+        ("asyncpg", "AsyncPG (PostgreSQL)"),
         ("httpx", "HTTPX"),
         ("pandas", "Pandas"),
         ("numpy", "NumPy"),
@@ -110,12 +110,12 @@ def main():
         print(f"❌ ESG Framework Manager failed: {e}")
         return False
 
-    # Test MongoDB manager
+    # Test PostgreSQL manager
     try:
-
-        print("✅ MongoDB Manager module loaded")
+        __import__("postgresql_manager")
+        print("✅ PostgreSQL Manager module loaded")
     except Exception as e:
-        print(f"⚠️  MongoDB Manager failed to import: {e}")
+        print(f"⚠️  PostgreSQL Manager failed to import: {e}")
 
     print("\n🎉 Health check passed!")
     print(f"📊 {len(critical_imports)} critical imports OK")

@@ -1,46 +1,49 @@
-# Deployment Checklist for VPC Setup
+# Deployment Checklist for ESG Scraper Platform
 
-## ✅ Already Done:
-- [x] MongoDB private VPC connection string configured
-- [x] App Platform configuration ready (app.yaml)
-- [x] Code formatted with Black
-- [x] All environment variables aligned
+## 🔐 Secrets Configuration (via DigitalOcean App Platform)
+- [x] PostgreSQL private VPC connection configured
+- [ ] Redis connection string (use Upstash or DigitalOcean Managed Redis)
+- [ ] JWT_SECRET generated and stored
+- [ ] Stripe API keys configured (if using payments)
+- [ ] Sentry DSN configured (for error tracking)
 
-## 📋 To Do:
+## 📝 Environment Variables to Set in App Platform
 
-### 1. Add GitHub Secrets:
-Go to: https://github.com/hannah-ric/esg-scraper/settings/secrets/actions
+### Required:
+- [ ] PGPASSWORD (from DigitalOcean PostgreSQL)
+- [ ] PGUSER (default: doadmin)
+- [ ] PGHOST (private-db-postgresql-*.db.ondigitalocean.com)
+- [ ] PGPORT (default: 25060)
+- [ ] PGDATABASE (default: defaultdb)
+- [ ] PGSSLMODE (set to: require)
+- [ ] UPSTASH_UPSTASH_REDIS_URL (Redis connection string)
+- [ ] JWT_SECRET (generate secure random string)
 
-Add these secrets:
-- [ ] MONGODB_URI (private VPC string)
-- [ ] MONGODB_DATABASE (set to: admin)
-- [ ] JWT_SECRET (use generated one above)
-- [ ] DIGITALOCEAN_ACCESS_TOKEN
-- [ ] DO_REGISTRY_NAME
-- [ ] UPSTASH_REDIS_URL
-- [ ] UPSTASH_REDIS_REST_URL
-- [ ] UPSTASH_REDIS_REST_TOKEN
-- [ ] STRIPE_SECRET_KEY
+### Optional:
+- [ ] SENTRY_DSN (for error tracking)
+- [ ] STRIPE_SECRET_KEY (for payments)
+- [ ] CORS_ORIGINS (comma-separated list of allowed origins)
 
-### 2. Verify VPC Setup:
-- [ ] MongoDB cluster is in same region as App Platform (nyc1)
-- [ ] Using private- prefix in production MongoDB URI
-- [ ] No IP whitelisting needed for production (VPC handles it)
+## 🔍 Pre-deployment Verification
+- [ ] PostgreSQL cluster is in same region as App Platform (nyc3)
+- [ ] Using private- prefix in production PostgreSQL URI
+- [ ] Redis instance is configured and accessible
+- [ ] All secrets are stored in App Platform environment variables
 
-### 3. Deploy:
-```bash
-git add -A
-git commit -m "feat: configure VPC MongoDB connection"
-git push origin main
-```
+## 🚀 Deployment Steps
+1. Push code to main branch
+2. Deploy via DigitalOcean App Platform
+3. Verify logs for successful startup
+4. Test health endpoint: `curl https://your-app.ondigitalocean.app/health`
 
-### 4. Monitor Deployment:
-- [ ] Check GitHub Actions: https://github.com/hannah-ric/esg-scraper/actions
-- [ ] View App Platform logs in DigitalOcean
-- [ ] Verify MongoDB connects via VPC (no public access needed)
+## ✅ Post-deployment Verification
+- [ ] Health check endpoint returns 200
+- [ ] Verify PostgreSQL connects via VPC (no public access needed)
+- [ ] Check Redis connectivity
+- [ ] Test authentication endpoints
+- [ ] Monitor Sentry for any errors
 
-## 🎉 Benefits of VPC:
-- No bandwidth charges between app and database
-- Enhanced security (no public exposure)
-- Lower latency
-- Automatic failover support 
+## 🔧 Rollback Plan
+- [ ] Previous deployment can be restored via App Platform
+- [ ] Database backups are automated by DigitalOcean
+- [ ] Redis data can be restored from snapshots 
