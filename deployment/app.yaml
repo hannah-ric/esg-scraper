@@ -55,7 +55,7 @@ services:
         scope: RUN_TIME
       
       - key: MONGODB_DATABASE
-        value: ${MONGODB_DATABASE}
+        value: admin
         scope: RUN_TIME
       
       # Upstash Redis Configuration
