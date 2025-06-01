@@ -13,7 +13,9 @@ import pytest
 # Mock environment variables for testing
 os.environ["JWT_SECRET"] = "test-secret-key"
 os.environ["UPSTASH_REDIS_URL"] = "redis://localhost:6379"  # Changed from REDIS_URL
-os.environ["MONGODB_URI"] = "mongodb://localhost:27017/test_frameworks"  # Changed from DATABASE_PATH
+os.environ["MONGODB_URI"] = (
+    "mongodb://localhost:27017/test_frameworks"  # Changed from DATABASE_PATH
+)
 
 # Import after setting environment
 
