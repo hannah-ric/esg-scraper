@@ -57,7 +57,7 @@ else
 fi
 
 # Check if SENTRY_DSN is in app.yaml
-if grep -q "SENTRY_DSN" esg-scraper/deployment/app.yaml; then
+if grep -q "SENTRY_DSN" deployment/app.yaml; then
     check_item "SENTRY_DSN in app.yaml" "PASS"
 else
     check_item "SENTRY_DSN in app.yaml" "FAIL" "Environment variable not configured"
@@ -118,13 +118,13 @@ echo "5. PostgreSQL Configuration"
 echo "----------------------"
 
 # Check if PostgreSQL environment variables are in app.yaml
-if grep -q "PGPASSWORD" esg-scraper/deployment/app.yaml; then
+if grep -q "PGPASSWORD" deployment/app.yaml; then
     check_item "PGPASSWORD in app.yaml" "PASS"
 else
     check_item "PGPASSWORD in app.yaml" "FAIL" "PostgreSQL password not configured"
 fi
 
-if grep -q "PGHOST" esg-scraper/deployment/app.yaml; then
+if grep -q "PGHOST" deployment/app.yaml; then
     check_item "PGHOST in app.yaml" "PASS"
 else
     check_item "PGHOST in app.yaml" "FAIL" "PostgreSQL host not configured"
@@ -141,10 +141,10 @@ else
 fi
 
 # Check if UPSTASH_REDIS_URL uses secret
-if grep -A2 "key: UPSTASH_UPSTASH_REDIS_URL" esg-scraper/deployment/app.yaml | grep -q "type: SECRET"; then
-    check_item "UPSTASH_UPSTASH_REDIS_URL as secret" "PASS"
+if grep -A2 "key: UPSTASH_REDIS_URL" deployment/app.yaml | grep -q "type: SECRET"; then
+    check_item "UPSTASH_REDIS_URL as secret" "PASS"
 else
-    check_item "UPSTASH_UPSTASH_REDIS_URL as secret" "WARN" "Should be configured as SECRET"
+    check_item "UPSTASH_REDIS_URL as secret" "WARN" "Should be configured as SECRET"
 fi
 
 echo "7. Error Handling"

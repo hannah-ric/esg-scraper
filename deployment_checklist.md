@@ -16,7 +16,7 @@
 - [ ] PGPORT (default: 25060)
 - [ ] PGDATABASE (default: defaultdb)
 - [ ] PGSSLMODE (set to: require)
-- [ ] UPSTASH_UPSTASH_REDIS_URL (Redis connection string)
+- [ ] UPSTASH_REDIS_URL (Redis connection string)
 - [ ] JWT_SECRET (generate secure random string)
 
 ### Optional:

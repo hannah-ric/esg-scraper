@@ -94,7 +94,7 @@ PGDATABASE=defaultdb
 PGSSLMODE=require
 
 # Redis (Upstash)
-UPSTASH_UPSTASH_REDIS_URL=rediss://default:password@endpoint.upstash.io:6379
+UPSTASH_REDIS_URL=rediss://default:password@endpoint.upstash.io:6379
 
 # Security
 JWT_SECRET=your-secret-key

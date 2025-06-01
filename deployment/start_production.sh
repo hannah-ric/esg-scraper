@@ -6,8 +6,8 @@ if [ -z "$PGPASSWORD" ]; then
     exit 1
 fi
 
-if [ -z "$UPSTASH_UPSTASH_REDIS_URL" ]; then
-    echo "❌ UPSTASH_UPSTASH_REDIS_URL not set!"
+if [ -z "$UPSTASH_REDIS_URL" ]; then
+    echo "❌ UPSTASH_REDIS_URL not set!"
     exit 1
 fi
 
@@ -28,7 +28,7 @@ export PGHOST=${PGHOST}
 export PGPORT=${PGPORT:-"25060"}
 export PGDATABASE=${PGDATABASE:-"defaultdb"}
 export PGSSLMODE=${PGSSLMODE:-"require"}
-export UPSTASH_UPSTASH_REDIS_URL=${UPSTASH_UPSTASH_REDIS_URL}
+export UPSTASH_REDIS_URL=${UPSTASH_REDIS_URL}
 export JWT_SECRET=${JWT_SECRET}
 
 echo "🚀 Starting ESG Intelligence API in production mode"

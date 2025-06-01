@@ -4,10 +4,6 @@ region: nyc1
 services:
   - name: api
     source_dir: /
-    github:
-      repo: hannah-ric/esg-scraper
-      branch: main
-      deploy_on_push: true
     
     # Use pre-built container image
     image:
